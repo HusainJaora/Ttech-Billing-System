@@ -1,8 +1,10 @@
 const express = require("express");
 const helmet = require('helmet');
 const cors = require("cors");
+const cookieParser = require('cookie-parser');
 require("dotenv").config();
 const userAuth = require("./routes/userAuthRoutes.js");
+const logtoutRoute = require("./routes/logoutRoute.js");
 const userProfileRoute = require("./routes/userProfile/profileRoute.js");
 const termsAndConditionRoute = require("./routes/userProfile/terms&ConditionRoute.js");
 const createUserRoute = require("./routes/admin/adminRoute.js");
@@ -28,18 +30,26 @@ const exportToExcelRoute = require("./routes/exportToExcelRoute.js");
 const userDashboardRoute = require("./routes/dashboard/userDashboardRoute.js");
 
 const app = express();
+
+app.use(cors({
+    origin: 'http://localhost:5173', // ← Must match your React app URL EXACTLY
+    credentials: true, // ← CRITICAL: This allows cookies to be sent
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(helmet());
 app.use(express.json());
-app.use(cors());
-
+app.use(cookieParser());
 app.get("/", (req, res) => {
     res.send("Backend is running!");
 });
 
 
 app.use("/auth",userAuth);
+app.use("/logout",logtoutRoute);
 app.use("/create-user",createUserRoute);
-app.use("/refresh",refreshToken);
+app.use("/refresh-token",refreshToken);
 
 app.use("/profile",userProfileRoute);
 app.use("/terms&Condition",termsAndConditionRoute)
