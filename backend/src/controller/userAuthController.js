@@ -62,6 +62,7 @@ const login = async (req, res) => {
         res.status(200).json({
             message: "Logged in successfully",
             username: user.username,
+            is_admin:user.is_admin
         });
 
     } catch (error) {
