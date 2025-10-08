@@ -7,10 +7,9 @@ const addQuotation = async (req, res) => {
     customer_contact,
     customer_email = "NA",
     customer_address = "NA",
-    inquiry_id,// optional, only for Repair quotations
+    inquiry_id, // optional, only for Repair quotations
     notes,
     items,
-
   } = req.body;
 
   const { signup_id } = req.user;
@@ -21,6 +20,7 @@ const addQuotation = async (req, res) => {
 
     let customer_id;
     let quotation_type = "Normal";
+    let technician_id = null;
 
     // 🔹 If inquiry_id is passed → Repair quotation
     if (inquiry_id) {
@@ -28,7 +28,7 @@ const addQuotation = async (req, res) => {
 
       // check inquiry exists & is Done
       const [inquiry] = await connection.query(
-        `SELECT inquiry_id, status, customer_id 
+        `SELECT inquiry_id, status,technician_id, customer_id 
          FROM inquires 
          WHERE inquiry_id=? AND signup_id=?`,
         [inquiry_id, signup_id]
@@ -40,11 +40,14 @@ const addQuotation = async (req, res) => {
       }
       if (inquiry[0].status !== "Done") {
         await connection.rollback();
-        return res.status(400).json({ error: "Repair quotation can only be created for inquiries marked as Done" });
+        return res
+          .status(400)
+          .json({ error: "Repair quotation can only be created for inquiries marked as Done" });
       }
 
       // use inquiry’s customer_id automatically
       customer_id = inquiry[0].customer_id;
+      technician_id = inquiry[0].technician_id;
     } else {
       // 🔹 Normal quotation → find or create customer
       const [existingCustomer] = await connection.query(
@@ -61,7 +64,7 @@ const addQuotation = async (req, res) => {
           customer_name,
           customer_contact,
           customer_email,
-          customer_address
+          customer_address,
         });
         customer_id = newCustomer.customer_id;
       }
@@ -78,13 +81,14 @@ const addQuotation = async (req, res) => {
     );
     const nextSerial = (latest[0].max_serial || 0) + 1;
 
-
     const prefix = quotation_type === "Repair" ? "RQ" : "Q";
     const quotation_no = `${prefix}${String(nextSerial).padStart(3, "0")}/${month}/${year}`;
 
-
     // 🔹 Calculate total
-    const total_amount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+    const total_amount = items.reduce(
+      (sum, item) => sum + item.quantity * item.unit_price,
+      0
+    );
 
     // 🔹 Insert quotation
     const [quotationResult] = await connection.query(
@@ -100,18 +104,18 @@ const addQuotation = async (req, res) => {
         quotation_type,
         total_amount,
         notes,
-        inquiry_id || null
+        inquiry_id || null,
       ]
     );
 
     const quotation_id = quotationResult.insertId;
 
     // 🔹 Insert quotation items
-    const itemInsertData = items.map(item => [
+    const itemInsertData = items.map((item) => [
       quotation_id,
       item.product_name,
       item.product_category_id,
-      item.product_description || '',
+      item.product_description || "",
       item.warranty,
       item.quantity,
       item.unit_price,
@@ -119,19 +123,49 @@ const addQuotation = async (req, res) => {
 
     await connection.query(
       `INSERT INTO quotation_items (
-        quotation_id, product_name, product_category_id, product_description,warranty,
+        quotation_id, product_name, product_category_id, product_description, warranty,
         quantity, unit_price
       ) VALUES ?`,
       [itemInsertData]
     );
 
+    // 🔹 If Repair quotation → create repair entry only if not exists
+    if (quotation_type === "Repair" && inquiry_id) {
+      const [existingRepair] = await connection.query(
+        `SELECT repair_id FROM repairs WHERE inquiry_id=? AND signup_id=?`,
+        [inquiry_id, signup_id]
+      );
+      
+
+      if (existingRepair.length === 0) {
+        // Generate repair serial & number
+        const [latestRepair] = await connection.query(
+          `SELECT MAX(repair_serial) AS max_serial FROM repairs WHERE signup_id=?`,
+          [signup_id]
+        );
+        const nextRepairSerial = (latestRepair[0].max_serial || 0) + 1;
+        const repair_no = `R${String(nextRepairSerial).padStart(3, "0")}/${month}/${year}`;
+
+        // ✅ Correct insert query with all required fields
+        await connection.query(
+          `INSERT INTO repairs (
+              signup_id,customer_id, inquiry_id, quotation_id,technician_id,
+              repair_serial, repair_no, repair_status,
+              created_date, created_time
+            )
+            VALUES (?,?, ?, ?, ?, ?,?, 'Pending', CURRENT_DATE(), CURRENT_TIME())`,
+          [signup_id,customer_id, inquiry_id, quotation_id,technician_id, nextRepairSerial, repair_no]
+        );
+      }
+    }
+
     await connection.commit();
+
     res.status(201).json({
       message: `${quotation_type} quotation created successfully`,
       quotation_id,
       quotation_no,
     });
-
   } catch (error) {
     await connection.rollback();
     console.error("Error creating quotation:", error);
