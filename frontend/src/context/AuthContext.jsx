@@ -14,6 +14,10 @@ export const AuthProvider = ({ children }) => {
     checkAuthStatus();
   }, []);
 
+    useEffect(() => {
+    console.log('Auth state changed:', isAuthenticated, user);
+  }, [isAuthenticated, user]);
+
   const checkAuthStatus = async () => {
     console.log('Checking auth status at:', ENDPOINTS.AUTH.STATUS);
     try {

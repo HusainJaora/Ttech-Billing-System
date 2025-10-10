@@ -1,0 +1,219 @@
+import { useState } from 'react';
+import { 
+  Menu,
+  LayoutDashboard, 
+  X, 
+  ChevronDown, 
+  ChevronRight,
+  Users,
+  Wrench,
+  ShoppingCart,
+  Settings,
+  FileText,
+  UserPlus,
+  List,
+  CreditCard,
+  FileSpreadsheet,
+  User,
+  LogOut,
+  PackageSearch,
+  Boxes,
+  ClipboardList
+} from 'lucide-react';
+
+export default function Sidebar({ onNavigate, onLogout, currentUser }) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState({});
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const toggleMenu = (menuName) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuName]: !prev[menuName]
+    }));
+  };
+
+  const handleNavigation = (path) => {
+    onNavigate(path);
+    // Close sidebar on mobile after navigation
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+  };
+
+  const menuItems = [
+    {
+    
+      name: 'Dashboard',
+      icon: LayoutDashboard,
+    },
+    {
+    
+      name: 'Master',
+      icon: List,
+      submenu: [
+        { name: 'Technician', icon: Users, path: '/master/technician' },
+        { name: 'Supplier', icon: PackageSearch, path: '/master/supplier' },
+        { name: 'Product Categories', icon: Boxes, path: '/master/categories' }
+      ]
+    },
+    {
+      name: 'Customers',
+      icon: Users,
+      submenu: [
+        { name: 'Customer List', icon: List, path: '/customers/list' },
+        { name: 'Add Customer', icon: UserPlus, path: '/customers/add' }
+      ]
+    },
+    {
+      name: 'Repair',
+      icon: Wrench,
+      submenu: [
+        { name: 'Inquiry', icon: ClipboardList, path: '/repair/inquiry' },
+        { name: 'Repair List', icon: List, path: '/repair/list' }
+      ]
+    },
+    {
+      name: 'Sales',
+      icon: ShoppingCart,
+      submenu: [
+        { name: 'Invoice', icon: FileText, path: '/sales/invoice' },
+        { name: 'Payments', icon: CreditCard, path: '/sales/payments' },
+        { name: 'Quotations', icon: FileSpreadsheet, path: '/sales/quotations' }
+      ]
+    },
+    {
+      name: 'Settings',
+      icon: Settings,
+      submenu: [
+        { name: 'User Profile', icon: User, path: '/settings/profile' },
+        { name: 'Terms & Conditions', icon: FileText, path: '/settings/terms' },
+        { name: 'Logout', icon: LogOut, action: 'logout' }
+      ]
+    }
+  ];
+
+  return (
+    <>
+      {/* Hamburger Button - Fixed position on mobile */}
+      <button
+        onClick={toggleSidebar}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 transition"
+      >
+        {isSidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+      </button>
+
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 backdrop-blur-md bg-white/30 z-30 transition"
+          onClick={toggleSidebar}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`
+          fixed top-0 left-0 h-full bg-white shadow-xl z-40 
+          transform transition-transform duration-300 ease-in-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0 lg:static lg:shadow-none
+          w-64 border-r border-gray-200
+        `}
+      >
+        {/* Sidebar Header  */}
+          {/* <div className="h-16 flex items-center px-6 border-b border-gray-200 bg-indigo-600">
+          <h2 className="text-xl font-bold text-white">Menu</h2>
+        </div>  */}
+
+        {/* User Info */}
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+              <User className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                {currentUser?.username || 'User'}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {currentUser?.email || 'user@example.com'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Menu */}
+        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isExpanded = expandedMenus[item.name];
+
+            return (
+              <div key={item.name}>
+                {/* Main Menu Item */}
+                <button
+                  onClick={() => toggleMenu(item.name)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Icon className="h-5 w-5" />
+                    <span className="font-medium">{item.name}</span>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </button>
+
+                {/* Submenu */}
+                {isExpanded && (
+                  <div className="mt-1 ml-4 space-y-1">
+                    {item.submenu.map((subItem) => {
+                      const SubIcon = subItem.icon;
+                      
+                      if (subItem.action === 'logout') {
+                        return (
+                          <button
+                            key={subItem.name}
+                            onClick={onLogout}
+                            className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition"
+                          >
+                            <SubIcon className="h-4 w-4" />
+                            <span>{subItem.name}</span>
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={subItem.name}
+                          onClick={() => handleNavigation(subItem.path)}
+                          className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition"
+                        >
+                          <SubIcon className="h-4 w-4" />
+                          <span>{subItem.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <p className="text-xs text-gray-500 text-center">
+            © 2024 Repair Management
+          </p>
+        </div>
+      </aside>
+    </>
+  );
+}
