@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import CreateUser from './pages/admin/CreateUser';
 
 function App() {
   return (
@@ -30,6 +31,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/admin/create-user/signup"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <CreateUser/>
+              </ProtectedRoute>
+            }
+          />
+          
+
           
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />

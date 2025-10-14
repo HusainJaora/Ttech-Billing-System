@@ -10,6 +10,9 @@ export default function AdminDashboard() {
     await logout();
     navigate('/login');
   };
+  const CreateUser = async () => {
+    navigate('/admin/create-user/signup');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,7 +43,7 @@ export default function AdminDashboard() {
           <p className="text-gray-700">
             You have admin privileges. Manage users, settings, and reports here.
           </p>
-          {/* You can add admin-only features here */}
+          <button className='cursor-pointer bg-blue-300 border-2 rounded-2xl' onClick={CreateUser}>Create User</button>
         </div>
       </main>
     </div>
