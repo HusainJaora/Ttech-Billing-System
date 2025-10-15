@@ -142,19 +142,6 @@ const createInvoice = async (req, res) => {
     }
 
     // 2️⃣ Generate Invoice Serial & Number
-    // const now = new Date();
-    // const month = now.toLocaleString("default", { month: "short" }).toUpperCase();
-    // const year = now.getFullYear().toString().slice(-2);
-
-    // const [latest] = await connection.query(
-    //   "SELECT MAX(invoice_serial) AS max_serial FROM invoices WHERE signup_id=?",
-    //   [signup_id]
-    // );
-    // const nextSerial = (latest[0].max_serial || 0) + 1;
-
-    // const invoice_no = `INV${String(nextSerial).padStart(3, "0")}/${month}/${year}`;
-
-    // 2️⃣ Generate Invoice Serial & Number
     const now = new Date();
     const invoiceDateObj = invoice_date ? new Date(invoice_date) : now;
 

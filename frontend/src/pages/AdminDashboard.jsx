@@ -11,7 +11,7 @@ export default function AdminDashboard() {
     navigate('/login');
   };
   const CreateUser = async () => {
-    navigate('/admin/create-user/signup');
+    navigate('/admin/create-user');
   };
 
   return (

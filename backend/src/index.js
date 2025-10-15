@@ -7,7 +7,7 @@ const userAuth = require("./routes/userAuthRoutes.js");
 const logtoutRoute = require("./routes/logoutRoute.js");
 const userProfileRoute = require("./routes/userProfile/profileRoute.js");
 const termsAndConditionRoute = require("./routes/userProfile/terms&ConditionRoute.js");
-const createUserRoute = require("./routes/admin/adminRoute.js");
+const adminRoute = require("./routes/admin/adminRoute.js");
 const masterAddingRoute = require("./routes/Master/addMasterRoute.js");
 const addquotationRoute = require("./routes/quotation/quotationRoute.js");
 const quotationStatus = require("./routes/quotation/quotationStatusRoute.js");
@@ -48,7 +48,7 @@ app.get("/", (req, res) => {
 
 app.use("/auth",userAuth);
 app.use("/logout",logtoutRoute);
-app.use("/create-user",createUserRoute);
+app.use("/admin",adminRoute);
 app.use("/refresh-token",refreshToken);
 
 app.use("/profile",userProfileRoute);

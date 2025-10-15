@@ -4,7 +4,10 @@ const validateToken = require("../../middleware/authToken");
 const ensureAdmin = require("../../middleware/ensureadmin");
 const {signupValidation, validateDuplicateUser} = require("../../middleware/uservalidation");
 const signup = require("../../controller/admin/createUser");
+const {getAllUser} = require("../../controller/admin/adminDashboard");
 
-router.post('/signup',validateToken,ensureAdmin,signupValidation,validateDuplicateUser,signup);
+router.get('/',validateToken,ensureAdmin,getAllUser);
+router.post('/create-user',validateToken,ensureAdmin,signupValidation,validateDuplicateUser,signup);
+
 
 module.exports = router;

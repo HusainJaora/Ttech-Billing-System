@@ -32,7 +32,7 @@ function App() {
             }
           />
           <Route
-            path="/admin/create-user/signup"
+            path="/admin/create-user"
             element={
               <ProtectedRoute requireAdmin={true}>
                 <CreateUser/>
