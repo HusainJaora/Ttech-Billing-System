@@ -63,7 +63,7 @@ const login = async (req, res) => {
             message: "Logged in successfully",
             username: user.username,
             is_admin:user.is_admin,
-            accessToken,
+            email:user.email,
             refreshToken
         });
 

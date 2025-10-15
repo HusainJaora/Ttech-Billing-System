@@ -26,6 +26,7 @@ export const AuthProvider = ({ children }) => {
       setUser({
         username: response.data.username,
         is_admin: response.data.is_admin,
+        email:response.data.email
       });
       setIsAuthenticated(true);
     } catch (error) {
@@ -50,6 +51,7 @@ export const AuthProvider = ({ children }) => {
       setUser({
         username: response.data.username,
         is_admin: response.data.is_admin,
+        email:response.data.email
       });
       setIsAuthenticated(true);
 
