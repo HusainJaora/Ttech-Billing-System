@@ -7,6 +7,9 @@ const ENDPOINTS = {
     LOGOUT: `${BASE_URL}/logout`,
     REFRESH_TOKEN: `${BASE_URL}/refresh-token`,
   },
+  CUSTOMER: {
+    ADD_CUSTOMER: `${BASE_URL}/customer/add-customer`,
+  }
 };
 
 export default ENDPOINTS;

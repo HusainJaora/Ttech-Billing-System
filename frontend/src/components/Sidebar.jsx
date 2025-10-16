@@ -21,7 +21,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 
-export default function Sidebar({ onNavigate, onLogout, currentUser }) {
+export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState({});
 
@@ -46,12 +46,11 @@ export default function Sidebar({ onNavigate, onLogout, currentUser }) {
 
   const menuItems = [
     {
-    
       name: 'Dashboard',
       icon: LayoutDashboard,
+      path: '/dashboard'
     },
     {
-    
       name: 'Master',
       icon: List,
       submenu: [
@@ -96,6 +95,17 @@ export default function Sidebar({ onNavigate, onLogout, currentUser }) {
     }
   ];
 
+  // Check if current path matches any submenu item in this menu
+  const isMenuActive = (item) => {
+    if (item.path && currentPath === item.path) {
+      return true;
+    }
+    if (item.submenu) {
+      return item.submenu.some(subItem => subItem.path === currentPath);
+    }
+    return false;
+  };
+
   return (
     <>
       {/* Hamburger Button - Fixed position on mobile */}
@@ -124,11 +134,6 @@ export default function Sidebar({ onNavigate, onLogout, currentUser }) {
           w-64 border-r border-gray-200
         `}
       >
-        {/* Sidebar Header  */}
-          {/* <div className="h-16 flex items-center px-6 border-b border-gray-200 bg-indigo-600">
-          <h2 className="text-xl font-bold text-white">Menu</h2>
-        </div>  */}
-
         {/* User Info */}
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center space-x-3">
@@ -151,30 +156,54 @@ export default function Sidebar({ onNavigate, onLogout, currentUser }) {
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isExpanded = expandedMenus[item.name];
+            const isActive = isMenuActive(item);
 
             return (
               <div key={item.name}>
                 {/* Main Menu Item */}
-                <button
-                  onClick={() => toggleMenu(item.name)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition group"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Icon className="h-5 w-5" />
-                    <span className="font-medium">{item.name}</span>
-                  </div>
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </button>
+                {item.path ? (
+                  // Direct navigation item (Dashboard)
+                  <button
+                    onClick={() => handleNavigation(item.path)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition group ${
+                      isActive
+                        ? 'bg-indigo-50 text-indigo-600'
+                        : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Icon className="h-5 w-5" />
+                      <span className="font-medium">{item.name}</span>
+                    </div>
+                  </button>
+                ) : (
+                  // Menu with submenu
+                  <button
+                    onClick={() => toggleMenu(item.name)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition group ${
+                      isActive
+                        ? 'bg-indigo-50 text-indigo-600'
+                        : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Icon className="h-5 w-5" />
+                      <span className="font-medium">{item.name}</span>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
 
                 {/* Submenu */}
-                {isExpanded && (
+                {item.submenu && isExpanded && (
                   <div className="mt-1 ml-4 space-y-1">
                     {item.submenu.map((subItem) => {
                       const SubIcon = subItem.icon;
+                      const isSubItemActive = subItem.path === currentPath;
                       
                       if (subItem.action === 'logout') {
                         return (
@@ -193,7 +222,11 @@ export default function Sidebar({ onNavigate, onLogout, currentUser }) {
                         <button
                           key={subItem.name}
                           onClick={() => handleNavigation(subItem.path)}
-                          className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition"
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-sm rounded-lg transition ${
+                            isSubItemActive
+                              ? 'bg-indigo-100 text-indigo-700 font-medium'
+                              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                          }`}
                         >
                           <SubIcon className="h-4 w-4" />
                           <span>{subItem.name}</span>
