@@ -139,7 +139,7 @@ return (
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Notification */}
           {notification.show && (
             <div className={`mb-6 rounded-lg border-2 p-4 flex items-start space-x-3 ${
@@ -270,8 +270,8 @@ return (
                   onClick={() => setFormData({
                     customer_name: '',
                     customer_contact: '',
-                    customer_email: 'NA',
-                    customer_address: 'NA'
+                    customer_email: '',
+                    customer_address:''
                   })}
                   className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
                   disabled={loading}

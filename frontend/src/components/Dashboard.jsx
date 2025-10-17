@@ -75,7 +75,7 @@ export default function Dashboard({
   };
 
   return (
-    <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Auto-refresh indicator */}
       {isRefreshing && (
         <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-2">
