@@ -4,51 +4,55 @@ import axiosInstance from '../api/axios';
 import Sidebar from '../components/Sidebar';
 import ENDPOINTS from '../api/endpoint';
 import { AuthContext } from '../context/AuthContext';
- import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Search, Calendar, Eye, RefreshCw, Download, Filter, X } from 'lucide-react';
+ import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Search, Calendar, Eye, RefreshCw, Download, Filter, X, Sparkles } from 'lucide-react';
+ import { SearchActionBar } from '../components/SearchActionBar';
 
 
 
-export const Customer = ()=>{
+
+
+export const Customer = () => {
   const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
-    const [formData,setFormData] = useState({
-        customer_name:'',
-        customer_contact:'',
-        customer_email:'',
-        customer_address:''
-    })
+  const [formData, setFormData] = useState({
+    customer_name: '',
+    customer_contact: '',
+    customer_email: '',
+    customer_address: ''
+  });
 
-    const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
-  const validateForm = ()=>{
+  const validateForm = () => {
     const newErrors = {};
-    if(!formData.customer_name.trim()){
-        newErrors.customer_name = 'Customer name is required'
+    if (!formData.customer_name.trim()) {
+      newErrors.customer_name = 'Customer name is required';
     }
 
-    if(!formData.customer_contact.trim()){
-        newErrors.customer_contact = 'Customer contact is required'
-    }else if (!/^\d{10}$/.test(formData.customer_contact)) {
-        newErrors.customer_contact = 'Contact number must be 10 digits';
-   }
+    if (!formData.customer_contact.trim()) {
+      newErrors.customer_contact = 'Customer contact is required';
+    } else if (!/^\d{10}$/.test(formData.customer_contact)) {
+      newErrors.customer_contact = 'Contact number must be 10 digits';
+    }
 
-   if (formData.customer_email.trim()) {
-   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customer_email)) {
-       newErrors.customer_email = 'Email must be valid';
-   }}
-   setErrors(newErrors);
+    if (formData.customer_email.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customer_email)) {
+        newErrors.customer_email = 'Email must be valid';
+      }
+    }
+    setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-}
+  };
 
-const handleChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-    
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -57,50 +61,48 @@ const handleChange = (e) => {
     }
   };
 
-
-const showNotification = (type, message) => {
+  const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
     setTimeout(() => {
       setNotification({ show: false, type: '', message: '' });
     }, 5000);
   };
-  
-const handleSubmit = async (e) => {
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
-    setLoading(true);
-try {
-    const response = await axiosInstance.post(ENDPOINTS.CUSTOMER.ADD_CUSTOMER,{
-        customer_name:formData.customer_name,
-        customer_contact:formData.customer_contact,
-        customer_email:formData.customer_email || 'NA',
-        customer_address:formData.customer_address || 'NA',
-    })
-    showNotification('success',response.data.message|| 'Customer added successfully')
 
-    setFormData({
-        customer_name:'',
-        customer_contact:'',
-        customer_email:'',
-        customer_address:''
-    })
-    
-} catch (error) {
-    console.error('Error creating user:', error);
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || 
-      'Failed to create user. Please try again.';
+    setLoading(true);
+    try {
+      const response = await axiosInstance.post(ENDPOINTS.CUSTOMER.ADD_CUSTOMER, {
+        customer_name: formData.customer_name,
+        customer_contact: formData.customer_contact,
+        customer_email: formData.customer_email || 'NA',
+        customer_address: formData.customer_address || 'NA',
+      });
+      showNotification('success', response.data.message || 'Customer added successfully');
+
+      setFormData({
+        customer_name: '',
+        customer_contact: '',
+        customer_email: '',
+        customer_address: ''
+      });
+
+    } catch (error) {
+      console.error('Error creating user:', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message ||
+        'Failed to create user. Please try again.';
       showNotification('error', errorMessage);
-    }finally {
+    } finally {
       setLoading(false);
     }
+  };
 
-}
-
-const handleNavigation = (path) => {
+  const handleNavigation = (path) => {
     navigate(path);
   };
 
@@ -108,30 +110,35 @@ const handleNavigation = (path) => {
     await logout();
     navigate('/login');
   };
-return (
-    <div className="min-h-screen bg-gray-50 flex">
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex">
       {/* Sidebar Component */}
-      <Sidebar 
+      <Sidebar
         onNavigate={handleNavigation}
         onLogout={handleLogout}
         currentUser={user}
         currentPath={location.pathname}
-
       />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
+        {/* Header with gradient */}
+        <header className="bg-white shadow-lg border-b border-gray-100">
+          <div className="px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4 ml-12 lg:ml-0">
-                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <UserPlus className="h-6 w-6 text-indigo-600" />
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+                  <UserPlus className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Add Customer</h1>
-                  <p className="text-sm text-gray-600">Create a new customer record</p>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent">
+                    Add Customer
+                  </h1>
+                  <p className="text-sm text-gray-600 flex items-center mt-1">
+                    <Sparkles className="h-3 w-3 mr-1 text-indigo-500" />
+                    Create a new customer record
+                  </p>
                 </div>
               </div>
             </div>
@@ -139,13 +146,13 @@ return (
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Notification */}
+        <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Notification with animation */}
           {notification.show && (
-            <div className={`mb-6 rounded-lg border-2 p-4 flex items-start space-x-3 ${
-              notification.type === 'success' 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-red-50 border-red-200'
+            <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg transform transition-all animate-in slide-in-from-top ${
+              notification.type === 'success'
+                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+                : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300'
             }`}>
               {notification.type === 'success' ? (
                 <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
@@ -162,18 +169,21 @@ return (
             </div>
           )}
 
-          {/* Form Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-bold text-gray-900">Customer Information</h2>
-              <p className="text-sm text-gray-600 mt-1">Fill in the details below to add a new customer</p>
+          {/* Form Card with enhanced styling */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+              <h2 className="text-xl font-bold flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                Customer Information
+              </h2>
+              <p className="text-indigo-100 mt-1 text-sm">Fill in the details below to add a new customer</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
               {/* Customer Name */}
-              <div>
-                <label htmlFor="customer_name" className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                  <User className="h-4 w-4 text-gray-500" />
+              <div className="group">
+                <label htmlFor="customer_name" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <User className="h-4 w-4 text-indigo-500" />
                   <span>Customer Name <span className="text-red-500">*</span></span>
                 </label>
                 <input
@@ -182,13 +192,13 @@ return (
                   name="customer_name"
                   value={formData.customer_name}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition ${
-                    errors.customer_name ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                    errors.customer_name ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
                   }`}
                   placeholder="Enter customer name"
                 />
                 {errors.customer_name && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
                     <AlertCircle className="h-4 w-4" />
                     <span>{errors.customer_name}</span>
                   </p>
@@ -196,9 +206,9 @@ return (
               </div>
 
               {/* Customer Contact */}
-              <div>
-                <label htmlFor="customer_contact" className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                  <Phone className="h-4 w-4 text-gray-500" />
+              <div className="group">
+                <label htmlFor="customer_contact" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Phone className="h-4 w-4 text-indigo-500" />
                   <span>Contact Number <span className="text-red-500">*</span></span>
                 </label>
                 <input
@@ -207,14 +217,14 @@ return (
                   name="customer_contact"
                   value={formData.customer_contact}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition ${
-                    errors.customer_contact ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                    errors.customer_contact ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
                   }`}
                   placeholder="Enter 10-digit contact number"
                   maxLength="10"
                 />
                 {errors.customer_contact && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
                     <AlertCircle className="h-4 w-4" />
                     <span>{errors.customer_contact}</span>
                   </p>
@@ -222,9 +232,9 @@ return (
               </div>
 
               {/* Customer Email */}
-              <div>
-                <label htmlFor="customer_email" className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                  <Mail className="h-4 w-4 text-gray-500" />
+              <div className="group">
+                <label htmlFor="customer_email" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Mail className="h-4 w-4 text-indigo-500" />
                   <span>Email Address</span>
                 </label>
                 <input
@@ -233,13 +243,13 @@ return (
                   name="customer_email"
                   value={formData.customer_email}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition ${
-                    errors.customer_email ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                    errors.customer_email ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
                   }`}
                   placeholder="Enter email address (optional)"
                 />
                 {errors.customer_email && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
                     <AlertCircle className="h-4 w-4" />
                     <span>{errors.customer_email}</span>
                   </p>
@@ -247,9 +257,9 @@ return (
               </div>
 
               {/* Customer Address */}
-              <div>
-                <label htmlFor="customer_address" className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                  <MapPin className="h-4 w-4 text-gray-500" />
+              <div className="group">
+                <label htmlFor="customer_address" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <MapPin className="h-4 w-4 text-indigo-500" />
                   <span>Address</span>
                 </label>
                 <textarea
@@ -258,22 +268,22 @@ return (
                   value={formData.customer_address}
                   onChange={handleChange}
                   rows="4"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition resize-none"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none shadow-sm hover:border-indigo-300"
                   placeholder="Enter customer address (optional)"
                 />
               </div>
 
               {/* Form Actions */}
-              <div className="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
                 <button
                   type="button"
                   onClick={() => setFormData({
                     customer_name: '',
                     customer_contact: '',
                     customer_email: '',
-                    customer_address:''
+                    customer_address: ''
                   })}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
                   disabled={loading}
                 >
                   Clear
@@ -281,7 +291,7 @@ return (
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg transform hover:scale-105"
                 >
                   {loading ? (
                     <>
@@ -299,14 +309,14 @@ return (
             </form>
           </div>
 
-          {/* Info Card */}
-          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          {/* Info Card with enhanced styling */}
+          <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md">
             <div className="flex items-start space-x-3">
               <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-sm font-semibold text-blue-900">Information</h3>
+                <h3 className="text-sm font-bold text-blue-900">Information</h3>
                 <p className="text-sm text-blue-800 mt-1">
-                  Fields marked with <span className="text-red-500">*</span> are required. 
+                  Fields marked with <span className="text-red-500 font-semibold">*</span> are required.
                   Email and Address are optional and will default to 'NA' if not provided.
                 </p>
               </div>
@@ -315,8 +325,9 @@ return (
         </main>
       </div>
     </div>
-)
-}
+  );
+};
+
 
 export const CustomerList = () => { 
   const navigate = useNavigate();
@@ -330,7 +341,11 @@ export const CustomerList = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFilters, setExportFilters] = useState({ q: '', from_date: '', to_date: '' });
   const [exporting, setExporting] = useState(false);
-   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
     fetchCustomers();
@@ -338,13 +353,19 @@ export const CustomerList = () => {
 
   useEffect(() => {
     filterCustomers();
+    setCurrentPage(1); // Reset to first page when search changes
   }, [searchTerm, customers]);
 
   const fetchCustomers = async () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get(ENDPOINTS.CUSTOMER.CUSTOMER_LIST);
-      setCustomers(response.data.customers || []);
+      const sortedCustomers = (response.data.customers || []).sort((a, b) => {
+        const dateA = new Date(`${a.created_date} ${a.created_time || '00:00:00'}`);
+        const dateB = new Date(`${b.created_date} ${b.created_time || '00:00:00'}`);
+        return dateB - dateA;
+      });
+      setCustomers(sortedCustomers);
       setError(null);
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Failed to fetch customers';
@@ -370,6 +391,17 @@ export const CustomerList = () => {
     setFilteredCustomers(filtered);
   };
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentCustomers = filteredCustomers.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleExportChange = (e) => {
     const { name, value } = e.target;
     setExportFilters(prev => ({ ...prev, [name]: value }));
@@ -381,59 +413,53 @@ export const CustomerList = () => {
       setNotification({ show: false, type: '', message: '' });
     }, 5000);
   };
+
   const handleExport = async () => {
-   setExporting(true);
+    setExporting(true);
     try {
-    // CRITICAL: Set responseType to 'blob' for binary data
-    const response = await axiosInstance.post(
-      ENDPOINTS.CUSTOMER.EXPORT_CUSTOMER,
-      exportFilters,
-      {
-        responseType: 'blob' // This tells axios to expect binary data
+      const response = await axiosInstance.post(
+        ENDPOINTS.CUSTOMER.EXPORT_CUSTOMER,
+        exportFilters,
+        {
+          responseType: 'blob'
+        }
+      );
+
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const filename = `Customer List_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setShowExportModal(false);
+      setExportFilters({ q: '', from_date: '', to_date: '' });
+
+      showNotification('success', `Customers exported successfully! File: ${filename}`);
+      
+    } catch (error) {
+      console.error('Export error:', error);
+
+      if (error.response?.status === 404) {
+        showNotification('error', 'No customers found matching your filters');
+      } else {
+        const errorMessage = error.response?.data?.message || 
+                            error.message || 
+                            'Failed to export customers. Please try again.';
+        showNotification('error', errorMessage);
       }
-    );
-
-    // Create blob from response
-    const blob = new Blob([response.data], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
-
-    // Create download link
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const filename = `Customer List_${new Date().toISOString().split('T')[0]}.xlsx`;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    
-    // Cleanup
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-
-    // Reset modal
-    setShowExportModal(false);
-    setExportFilters({ q: '', from_date: '', to_date: '' });
-
-    // Show success notification using your existing system
-    showNotification('success', `Customers exported successfully! File: ${filename}`);
-    
-  } catch (error) {
-    console.error('Export error:', error);
-
-    // Handle specific error cases
-    if (error.response?.status === 404) {
-      showNotification('error', 'No customers found matching your filters');
-    } else {
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Failed to export customers. Please try again.';
-      showNotification('error', errorMessage);
+    } finally {
+      setExporting(false);
     }
-  } finally {
-    setExporting(false);
-  }
-};
+  };
 
   const handleManualRefresh = () => {
     setIsRefreshing(true);
@@ -451,6 +477,10 @@ export const CustomerList = () => {
 
   const handleViewCustomer = (customerId) => {
     navigate(`/customers/detail/${customerId}`);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
   };
 
   const formatDate = (dateString) => {
@@ -499,6 +529,7 @@ export const CustomerList = () => {
                   <h1 className="text-2xl font-bold text-gray-900">Customer List</h1>
                   <p className="text-sm text-gray-600">
                     Total {filteredCustomers.length} customer{filteredCustomers.length !== 1 ? 's' : ''}
+                    {filteredCustomers.length > 0 && ` • Page ${currentPage} of ${totalPages}`}
                   </p>
                 </div>
               </div>
@@ -574,96 +605,163 @@ export const CustomerList = () => {
             </div>
           )}
 
+          
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by name or contact number..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-              />
-            </div>
-          </div>
+            <SearchActionBar
+              searchValue={searchTerm}
+              onSearchChange={handleSearchChange}
+              placeholder="Search by name or contact number..."
+            />
+          </div> 
+
+          
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              {filteredCustomers.length > 0 ? (
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Customer ID
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Name
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Contact
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Created Date
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Created Time
-                      </th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredCustomers.map((customer) => (
-                      <tr
-                        key={customer.customer_id}
-                        className="hover:bg-gray-50 transition"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-medium text-indigo-600">
-                            #{customer.customer_id}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-3">
-                            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                              <Users className="h-5 w-5 text-indigo-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                {customer.customer_name}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-2 text-sm text-gray-900">
-                            <Phone className="h-4 w-4 text-gray-400" />
-                            <span>{customer.customer_contact}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            <span>{formatDate(customer.created_date)}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {formatTime(customer.created_time)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <button
-                            onClick={() => handleViewCustomer(customer.customer_id)}
-                            className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition font-medium"
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span>View</span>
-                          </button>
-                        </td>
+              {currentCustomers.length > 0 ? (
+                <>
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Sr. No.
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Contact
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Created Date
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Created Time
+                        </th>
+                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {currentCustomers.map((customer, index) => {
+                        const serialNumber = customers.length - customers.findIndex(c => c.customer_id === customer.customer_id);
+                        return (
+                          <tr
+                            key={customer.customer_id}
+                            className="hover:bg-gray-50 transition"
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm font-medium text-gray-700">
+                                {serialNumber}
+                              </span>
+                            </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-3">
+                              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                <Users className="h-5 w-5 text-indigo-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {customer.customer_name}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2 text-sm text-gray-900">
+                              <Phone className="h-4 w-4 text-gray-400" />
+                              <span>{customer.customer_contact}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2 text-sm text-gray-600">
+                              <Calendar className="h-4 w-4 text-gray-400" />
+                              <span>{formatDate(customer.created_date)}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {formatTime(customer.created_time)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <button
+                              onClick={() => handleViewCustomer(customer.customer_id)}
+                              className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition font-medium"
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span>View</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-gray-600">
+                          Showing {startIndex + 1} to {Math.min(endIndex, filteredCustomers.length)} of {filteredCustomers.length} customers
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                          >
+                            Previous
+                          </button>
+                          
+                          <div className="flex items-center space-x-1">
+                            {[...Array(totalPages)].map((_, i) => {
+                              const page = i + 1;
+                              // Show first page, last page, current page, and pages around current
+                              if (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              ) {
+                                return (
+                                  <button
+                                    key={page}
+                                    onClick={() => handlePageChange(page)}
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                                      currentPage === page
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
+                                    }`}
+                                  >
+                                    {page}
+                                  </button>
+                                );
+                              } else if (
+                                page === currentPage - 2 ||
+                                page === currentPage + 2
+                              ) {
+                                return (
+                                  <span key={page} className="px-2 text-gray-500">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-16">
                   <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -689,57 +787,12 @@ export const CustomerList = () => {
               )}
             </div>
           </div>
-
-          {filteredCustomers.length > 0 && (
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center space-x-3">
-                  <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <Users className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Total Customers</p>
-                    <p className="text-2xl font-bold text-gray-900">{customers.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center space-x-3">
-                  <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                    <Search className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Search Results</p>
-                    <p className="text-2xl font-bold text-gray-900">{filteredCustomers.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center space-x-3">
-                  <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <Calendar className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Added Today</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {customers.filter(c => {
-                        const today = new Date().toISOString().split('T')[0];
-                        return c.created_date === today;
-                      }).length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </main>
       </div>
 
       {/* Export Modal */}
       {showExportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <div className="flex items-center space-x-3">
@@ -830,4 +883,3 @@ export const CustomerList = () => {
     </div>
   );
 };
-
