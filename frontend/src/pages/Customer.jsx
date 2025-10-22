@@ -4,10 +4,12 @@ import axiosInstance from '../api/axios';
 import Sidebar from '../components/Sidebar';
 import ENDPOINTS from '../api/endpoint';
 import { AuthContext } from '../context/AuthContext';
- import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Search, Calendar, Eye, RefreshCw, Download, Filter, X, Sparkles } from 'lucide-react';
+ import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Calendar, Eye, RefreshCw,  Sparkles} from 'lucide-react';
  import { SearchActionBar } from '../components/SearchActionBar';
-
-
+import { memo,useCallback  } from 'react';
+const MemoizedSidebar = memo(Sidebar);
+import { ExportButton } from '../components/ExportButton';
+import { Pagination } from '../components/Pagination';
 
 
 
@@ -114,7 +116,7 @@ export const Customer = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex">
       {/* Sidebar Component */}
-      <Sidebar
+      <MemoizedSidebar
         onNavigate={handleNavigation}
         onLogout={handleLogout}
         currentUser={user}
@@ -338,10 +340,6 @@ export const CustomerList = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFilters, setExportFilters] = useState({ q: '', from_date: '', to_date: '' });
-  const [exporting, setExporting] = useState(false);
-  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -353,30 +351,72 @@ export const CustomerList = () => {
 
   useEffect(() => {
     filterCustomers();
-    setCurrentPage(1); // Reset to first page when search changes
+    setCurrentPage(1);
   }, [searchTerm, customers]);
 
-  const fetchCustomers = async () => {
-    try {
+  // const fetchCustomers = async (isManualRefresh = false) => {
+  //   try {
+  //     if (!isManualRefresh) {
+  //       setLoading(true);
+  //     } else {
+  //       setIsRefreshing(true);
+  //     }
+      
+  //     const response = await axiosInstance.get(ENDPOINTS.CUSTOMER.CUSTOMER_LIST);
+  //     const sortedCustomers = (response.data.customers || []).sort((a, b) => {
+  //       const dateA = new Date(`${a.created_date} ${a.created_time || '00:00:00'}`);
+  //       const dateB = new Date(`${b.created_date} ${b.created_time || '00:00:00'}`);
+  //       return dateB - dateA;
+  //     });
+  //     setCustomers(sortedCustomers);
+  //     setError(null);
+  //   } catch (err) {
+  //     const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Failed to fetch customers';
+  //     setError(errorMessage);
+  //     console.error('Customer fetch error:', err);
+  //   } finally {
+  //     setLoading(false);
+  //     setIsRefreshing(false);
+  //   }
+  // };
+const fetchCustomers = async (isManualRefresh = false) => {
+  try {
+    if (!isManualRefresh) {
       setLoading(true);
-      const response = await axiosInstance.get(ENDPOINTS.CUSTOMER.CUSTOMER_LIST);
-      const sortedCustomers = (response.data.customers || []).sort((a, b) => {
-        const dateA = new Date(`${a.created_date} ${a.created_time || '00:00:00'}`);
-        const dateB = new Date(`${b.created_date} ${b.created_time || '00:00:00'}`);
-        return dateB - dateA;
-      });
-      setCustomers(sortedCustomers);
-      setError(null);
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Failed to fetch customers';
-      setError(errorMessage);
-      console.error('Customer fetch error:', err);
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+    } else {
+      setIsRefreshing(true);
     }
-  };
-
+    
+    const response = await axiosInstance.get(ENDPOINTS.CUSTOMER.CUSTOMER_LIST);
+    const sortedCustomers = (response.data.customers || []).sort((a, b) => {
+      const dateA = new Date(`${a.created_date} ${a.created_time || '00:00:00'}`);
+      const dateB = new Date(`${b.created_date} ${b.created_time || '00:00:00'}`);
+      return dateB - dateA;
+    });
+    setCustomers(sortedCustomers);
+    setError(null);
+  } catch (err) {
+    // Don't show error if it's just a "no customer found" message
+    const errorMessage = err.response?.data?.message || err.response?.data?.error || '';
+    
+    // Check if it's a "no customer found" scenario
+    if (errorMessage.toLowerCase().includes('no customer found') || 
+        errorMessage.toLowerCase().includes('customer not found') ||
+        err.response?.status === 400) {
+      // Treat as empty list, not an error
+      setCustomers([]);
+      setError(null);
+      console.log('No customers available');
+    } else {
+      // Real error - show error message
+      setError(errorMessage || 'Failed to fetch customers');
+      console.error('Customer fetch error:', err);
+    }
+  } finally {
+    setLoading(false);
+    setIsRefreshing(false);
+  }
+};
   const filterCustomers = () => {
     if (!searchTerm.trim()) {
       setFilteredCustomers(customers);
@@ -402,78 +442,19 @@ export const CustomerList = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleExportChange = (e) => {
-    const { name, value } = e.target;
-    setExportFilters(prev => ({ ...prev, [name]: value }));
-  };
-
-  const showNotification = (type, message) => {
-    setNotification({ show: true, type, message });
-    setTimeout(() => {
-      setNotification({ show: false, type: '', message: '' });
-    }, 5000);
-  };
-
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const response = await axiosInstance.post(
-        ENDPOINTS.CUSTOMER.EXPORT_CUSTOMER,
-        exportFilters,
-        {
-          responseType: 'blob'
-        }
-      );
-
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      });
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const filename = `Customer List_${new Date().toISOString().split('T')[0]}.xlsx`;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      setShowExportModal(false);
-      setExportFilters({ q: '', from_date: '', to_date: '' });
-
-      showNotification('success', `Customers exported successfully! File: ${filename}`);
-      
-    } catch (error) {
-      console.error('Export error:', error);
-
-      if (error.response?.status === 404) {
-        showNotification('error', 'No customers found matching your filters');
-      } else {
-        const errorMessage = error.response?.data?.message || 
-                            error.message || 
-                            'Failed to export customers. Please try again.';
-        showNotification('error', errorMessage);
-      }
-    } finally {
-      setExporting(false);
-    }
-  };
-
   const handleManualRefresh = () => {
-    setIsRefreshing(true);
-    fetchCustomers();
+    fetchCustomers(true);
   };
 
-  const handleNavigation = (path) => {
+  // Memoize callbacks for stable references
+  const handleNavigation = useCallback((path) => {
     navigate(path);
-  };
+  }, [navigate]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await logout();
     navigate('/login');
-  };
+  }, [logout, navigate]);
 
   const handleViewCustomer = (customerId) => {
     navigate(`/customers/detail/${customerId}`);
@@ -497,7 +478,7 @@ export const CustomerList = () => {
     return timeString;
   };
 
-  if (loading) {
+  if (loading && customers.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -510,7 +491,7 @@ export const CustomerList = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar
+      <MemoizedSidebar
         onNavigate={handleNavigation}
         onLogout={handleLogout}
         currentUser={user}
@@ -542,14 +523,42 @@ export const CustomerList = () => {
                 >
                   <RefreshCw className={`h-5 w-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </button>
-                <button
-                  onClick={() => setShowExportModal(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
-                  title="Export customers to Excel"
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">Export</span>
-                </button>
+                
+                {/* Integrated ExportButton Component */}
+                <ExportButton
+                  endpoint={ENDPOINTS.CUSTOMER.EXPORT_CUSTOMER}
+                  axiosInstance={axiosInstance}
+                  defaultFilters={{ q: '', from_date: '', to_date: '' }}
+                  buttonText="Export"
+                  modalTitle="Export Customers"
+                  fileNamePrefix="Customer List"
+                  filterFields={[
+                    {
+                      name: 'q',
+                      label: 'Search (Name or Contact)',
+                      type: 'text',
+                      placeholder: 'Optional search term',
+                      gridSpan: 2
+                    },
+                    {
+                      name: 'from_date',
+                      label: 'From Date',
+                      type: 'date'
+                    },
+                    {
+                      name: 'to_date',
+                      label: 'To Date',
+                      type: 'date'
+                    }
+                  ]}
+                  onExportSuccess={(filename) => {
+                    console.log('Export successful:', filename);
+                  }}
+                  onExportError={(error) => {
+                    console.error('Export failed:', error);
+                  }}
+                />
+
                 <button
                   onClick={() => navigate('/customers/add')}
                   className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
@@ -563,26 +572,6 @@ export const CustomerList = () => {
         </header>
 
         <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {notification.show && (
-            <div className={`mb-6 rounded-lg border-2 p-4 flex items-start space-x-3 ${
-              notification.type === 'success' 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-red-50 border-red-200'
-            }`}>
-              {notification.type === 'success' ? (
-                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${
-                  notification.type === 'success' ? 'text-green-800' : 'text-red-800'
-                }`}>
-                  {notification.message}
-                </p>
-              </div>
-            </div>
-          )}
           {isRefreshing && (
             <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-2">
               <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
@@ -605,7 +594,6 @@ export const CustomerList = () => {
             </div>
           )}
 
-          
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
             <SearchActionBar
               searchValue={searchTerm}
@@ -613,8 +601,6 @@ export const CustomerList = () => {
               placeholder="Search by name or contact number..."
             />
           </div> 
-
-          
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
@@ -644,7 +630,7 @@ export const CustomerList = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {currentCustomers.map((customer, index) => {
+                      {currentCustomers.map((customer) => {
                         const serialNumber = customers.length - customers.findIndex(c => c.customer_id === customer.customer_id);
                         return (
                           <tr
@@ -656,111 +642,58 @@ export const CustomerList = () => {
                                 {serialNumber}
                               </span>
                             </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center space-x-3">
-                              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                <Users className="h-5 w-5 text-indigo-600" />
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center space-x-3">
+                                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                  <Users className="h-5 w-5 text-indigo-600" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {customer.customer_name}
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">
-                                  {customer.customer_name}
-                                </p>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center space-x-2 text-sm text-gray-900">
+                                <Phone className="h-4 w-4 text-gray-400" />
+                                <span>{customer.customer_contact}</span>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center space-x-2 text-sm text-gray-900">
-                              <Phone className="h-4 w-4 text-gray-400" />
-                              <span>{customer.customer_contact}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center space-x-2 text-sm text-gray-600">
-                              <Calendar className="h-4 w-4 text-gray-400" />
-                              <span>{formatDate(customer.created_date)}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {formatTime(customer.created_time)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <button
-                              onClick={() => handleViewCustomer(customer.customer_id)}
-                              className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition font-medium"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span>View</span>
-                            </button>
-                          </td>
-                        </tr>
-                      );
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                <Calendar className="h-4 w-4 text-gray-400" />
+                                <span>{formatDate(customer.created_date)}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              {formatTime(customer.created_time)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              <button
+                                onClick={() => handleViewCustomer(customer.customer_id)}
+                                className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition font-medium"
+                              >
+                                <Eye className="h-4 w-4" />
+                                <span>View</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
                       })}
                     </tbody>
                   </table>
 
-                  {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600">
-                          Showing {startIndex + 1} to {Math.min(endIndex, filteredCustomers.length)} of {filteredCustomers.length} customers
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                          >
-                            Previous
-                          </button>
-                          
-                          <div className="flex items-center space-x-1">
-                            {[...Array(totalPages)].map((_, i) => {
-                              const page = i + 1;
-                              // Show first page, last page, current page, and pages around current
-                              if (
-                                page === 1 ||
-                                page === totalPages ||
-                                (page >= currentPage - 1 && page <= currentPage + 1)
-                              ) {
-                                return (
-                                  <button
-                                    key={page}
-                                    onClick={() => handlePageChange(page)}
-                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                                      currentPage === page
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
-                                    }`}
-                                  >
-                                    {page}
-                                  </button>
-                                );
-                              } else if (
-                                page === currentPage - 2 ||
-                                page === currentPage + 2
-                              ) {
-                                return (
-                                  <span key={page} className="px-2 text-gray-500">
-                                    ...
-                                  </span>
-                                );
-                              }
-                              return null;
-                            })}
-                          </div>
-
-                          <button
-                            onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                          >
-                            Next
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  {/* Replace the entire pagination section with the Pagination component */}
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredCustomers.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onPageChange={handlePageChange}
+                    showInfo={true}
+                    itemLabel="customers"
+                  />
                 </>
               ) : (
                 <div className="text-center py-16">
@@ -789,97 +722,9 @@ export const CustomerList = () => {
           </div>
         </main>
       </div>
-
-      {/* Export Modal */}
-      {showExportModal && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <Download className="h-5 w-5 text-green-600" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-900">Export Customers</h2>
-              </div>
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition"
-              >
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search (Name or Contact)</label>
-                <input
-                  type="text"
-                  name="q"
-                  value={exportFilters.q}
-                  onChange={handleExportChange}
-                  placeholder="Optional search term"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-                  <input
-                    type="date"
-                    name="from_date"
-                    value={exportFilters.from_date}
-                    onChange={handleExportChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-                  <input
-                    type="date"
-                    name="to_date"
-                    value={exportFilters.to_date}
-                    onChange={handleExportChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start space-x-2">
-                <Filter className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-blue-700">Apply filters to export specific customers. Leave empty to export all.</p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
-                disabled={exporting}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleExport}
-                disabled={exporting}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {exporting ? (
-                  <>
-                    <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></div>
-                    <span>Exporting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4" />
-                    <span>Export</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+
+
+

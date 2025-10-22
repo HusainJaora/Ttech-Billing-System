@@ -10,6 +10,7 @@ const ENDPOINTS = {
   CUSTOMER: {
     ADD_CUSTOMER: `${BASE_URL}/customer/add-customer`,
     CUSTOMER_LIST:`${BASE_URL}/customer`,
+    UPDATE_CUSTOMER:`${BASE_URL}/customer/update-customer`,
     EXPORT_CUSTOMER:`${BASE_URL}/export/customers`
   }
 };
