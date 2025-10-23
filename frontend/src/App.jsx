@@ -6,7 +6,7 @@ import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import CreateUser from './pages/admin/CreateUser';
-import {Customer,CustomerList}  from './pages/Customer';
+import {Customer,CustomerList,CustomerDetail}  from './pages/Customer';
 
 
 function App() {
@@ -42,6 +42,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route
+           path="/customers/detail/:customerId"
+             element={
+              <ProtectedRoute>
+                <CustomerDetail />
+              </ProtectedRoute>
+            }
+            />
 
 
 

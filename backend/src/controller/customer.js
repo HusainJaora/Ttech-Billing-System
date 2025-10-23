@@ -184,7 +184,14 @@ const getSingleCustomer = async (req, res) => {
             [customer_id, signup_id]
         );
 
-        const pendingPayments = invoiceRows.filter(inv => inv.due_amount > 0);
+        const pendingPayments = invoiceRows.filter(inv => 
+            inv.due_amount > 0 && 
+            inv.status && 
+            inv.status.toLowerCase() !== 'draft' && 
+            inv.status.toLowerCase() !== 'cancelled'
+        );
+
+        // const pendingPayments = invoiceRows.filter(inv => inv.due_amount > 0);
         const totalDue = pendingPayments.reduce((sum, inv) => sum + inv.due_amount, 0);
 
         res.json({

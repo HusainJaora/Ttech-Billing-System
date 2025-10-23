@@ -1,10 +1,10 @@
 import { useState,useContext,useEffect  } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate,useParams  } from 'react-router-dom';
 import axiosInstance from '../api/axios';
 import Sidebar from '../components/Sidebar';
 import ENDPOINTS from '../api/endpoint';
 import { AuthContext } from '../context/AuthContext';
- import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Calendar, Eye, RefreshCw,  Sparkles} from 'lucide-react';
+ import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Calendar, Eye, RefreshCw,  Sparkles,FileText,Receipt,ArrowLeft, Clock, XCircle, Wrench, ClipboardList} from 'lucide-react';
  import { SearchActionBar } from '../components/SearchActionBar';
 import { memo,useCallback  } from 'react';
 const MemoizedSidebar = memo(Sidebar);
@@ -726,5 +726,461 @@ const fetchCustomers = async (isManualRefresh = false) => {
   );
 };
 
+export const CustomerDetail = () => {
+  const navigate = useNavigate();
+  const { customerId } = useParams();
+  const { user, logout } = useContext(AuthContext);
+  
+  const [customerData, setCustomerData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetchCustomerDetail();
+  }, [customerId]);
+
+  const fetchCustomerDetail = async (isManualRefresh = false) => {
+    try {
+      if (!isManualRefresh) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+      
+      const response = await axiosInstance.get(
+        `${ENDPOINTS.CUSTOMER.CUSTOMER_DETAIL}/${customerId}`
+      );
+      
+      setCustomerData(response.data);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error || 
+                          'Failed to fetch customer details';
+      setError(errorMessage);
+      console.error('Customer detail fetch error:', err);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleManualRefresh = () => {
+    fetchCustomerDetail(true);
+  };
+
+  const handleNavigation = useCallback((path) => {
+    navigate(path);
+  }, [navigate]);
+
+  const handleLogout = useCallback(async () => {
+    await logout();
+    navigate('/login');
+  }, [logout, navigate]);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2
+    }).format(amount || 0);
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'paid': { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
+      'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock },
+      'cancelled': { bg: 'bg-red-100', text: 'text-red-800', icon: XCircle },
+      'completed': { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
+      'in_progress': { bg: 'bg-blue-100', text: 'text-blue-800', icon: Clock },
+    };
+
+    const config = statusConfig[status?.toLowerCase()] || statusConfig['pending'];
+    const Icon = config.icon;
+
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+        <Icon className="h-3 w-3 mr-1" />
+        {status}
+      </span>
+    );
+  };
+
+  if (loading && !customerData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading customer details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex">
+        <MemoizedSidebar
+          onNavigate={handleNavigation}
+          onLogout={handleLogout}
+          currentUser={user}
+          currentPath={location.pathname}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Customer</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={() => navigate('/customers/list')}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+            >
+              Back to Customer List
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { profile, invoices = [], quotations = [], inquiries = [], repairs = [], pending_payments = [], total_due = 0 } = customerData || {};
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      <MemoizedSidebar
+        onNavigate={handleNavigation}
+        onLogout={handleLogout}
+        currentUser={user}
+        currentPath={location.pathname}
+      />
+
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-gray-200">
+          <div className="px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+                <button
+                  onClick={() => navigate('/customers/list')}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <ArrowLeft className="h-5 w-5 text-gray-600" />
+                </button>
+                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                  <User className="h-6 w-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">{profile?.customer_name}</h1>
+                  <p className="text-sm text-gray-600">Customer Details</p>
+                </div>
+              </div>
+              <button
+                onClick={handleManualRefresh}
+                disabled={isRefreshing}
+                className="p-2 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
+                title="Refresh customer details"
+              >
+                <RefreshCw className={`h-5 w-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {isRefreshing && (
+            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-2">
+              <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
+              <span className="text-sm text-blue-700">Refreshing customer details...</span>
+            </div>
+          )}
+
+          {/* Customer Profile Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-start space-x-3">
+                <Phone className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Contact Number</p>
+                  <p className="text-base text-gray-900">{profile?.customer_contact}</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <Mail className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Email Address</p>
+                  <p className="text-base text-gray-900">{profile?.customer_email || 'N/A'}</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3 md:col-span-2">
+                <MapPin className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Address</p>
+                  <p className="text-base text-gray-900">{profile?.customer_address || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Financial Summary */}
+          {total_due > 0 && (
+            <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-xl p-6 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-900">Outstanding Balance</h3>
+                    <p className="text-sm text-red-700">{pending_payments.length} pending invoice(s)</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-red-900">{formatCurrency(total_due)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="border-b border-gray-200">
+              <nav className="flex space-x-8 px-6" aria-label="Tabs">
+                {[
+                  { id: 'overview', name: 'Overview', icon: FileText },
+                  { id: 'invoices', name: 'Invoices', icon: Receipt, count: invoices.length },
+                  { id: 'quotations', name: 'Quotations', icon: ClipboardList, count: quotations.length },
+                  { id: 'inquiries', name: 'Inquiries', icon: AlertCircle, count: inquiries.length },
+                  { id: 'repairs', name: 'Repairs', icon: Wrench, count: repairs.length },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                        activeTab === tab.id
+                          ? 'border-indigo-500 text-indigo-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{tab.name}</span>
+                      {tab.count !== undefined && (
+                        <span className={`ml-2 py-0.5 px-2 rounded-full text-xs ${
+                          activeTab === tab.id ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="p-6">
+              {/* Overview Tab */}
+              {activeTab === 'overview' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-blue-600">Total Invoices</p>
+                        <p className="text-2xl font-bold text-blue-900 mt-1">{invoices.length}</p>
+                      </div>
+                      <Receipt className="h-8 w-8 text-blue-600" />
+                    </div>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-green-600">Quotations</p>
+                        <p className="text-2xl font-bold text-green-900 mt-1">{quotations.length}</p>
+                      </div>
+                      <ClipboardList className="h-8 w-8 text-green-600" />
+                    </div>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-purple-600">Inquiries</p>
+                        <p className="text-2xl font-bold text-purple-900 mt-1">{inquiries.length}</p>
+                      </div>
+                      <AlertCircle className="h-8 w-8 text-purple-600" />
+                    </div>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-orange-600">Repairs</p>
+                        <p className="text-2xl font-bold text-orange-900 mt-1">{repairs.length}</p>
+                      </div>
+                      <Wrench className="h-8 w-8 text-orange-600" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Invoices Tab */}
+              {activeTab === 'invoices' && (
+                <div className="overflow-x-auto">
+                  {invoices.length > 0 ? (
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Invoice No</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Total</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Paid</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Due</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {invoices.map((invoice) => (
+                          <tr key={invoice.invoice_id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{invoice.invoice_no}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{formatDate(invoice.invoice_date)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{invoice.source_type || 'N/A'}</td>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatCurrency(invoice.grand_total)}</td>
+                            <td className="px-4 py-3 text-sm text-green-600">{formatCurrency(invoice.amount_paid)}</td>
+                            <td className="px-4 py-3 text-sm text-red-600">{formatCurrency(invoice.due_amount)}</td>
+                            <td className="px-4 py-3">{getStatusBadge(invoice.status)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No invoices found</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Quotations Tab */}
+              {activeTab === 'quotations' && (
+                <div className="overflow-x-auto">
+                  {quotations.length > 0 ? (
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Quotation No</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Amount</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {quotations.map((quotation) => (
+                          <tr key={quotation.quotation_id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{quotation.quotation_no}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{formatDate(quotation.quotation_date)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{quotation.quotation_type || 'N/A'}</td>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatCurrency(quotation.total_amount)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{quotation.notes || 'N/A'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-center py-12">
+                      <ClipboardList className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No quotations found</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Inquiries Tab */}
+              {activeTab === 'inquiries' && (
+                <div className="overflow-x-auto">
+                  {inquiries.length > 0 ? (
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Inquiry No</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Time</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Technician</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {inquiries.map((inquiry) => (
+                          <tr key={inquiry.inquiry_id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{inquiry.inquiry_no}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{formatDate(inquiry.created_date)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{inquiry.created_time || 'N/A'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{inquiry.technician_name || 'Not Assigned'}</td>
+                            <td className="px-4 py-3">{getStatusBadge(inquiry.status)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-center py-12">
+                      <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No inquiries found</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Repairs Tab */}
+              {activeTab === 'repairs' && (
+                <div className="overflow-x-auto">
+                  {repairs.length > 0 ? (
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Repair No</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Quotation No</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Inquiry No</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Technician</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {repairs.map((repair) => (
+                          <tr key={repair.repair_id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{repair.repair_no}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{repair.quotation_no}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{repair.inquiry_no}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{repair.technician_name || 'Not Assigned'}</td>
+                            <td className="px-4 py-3">{getStatusBadge(repair.repair_status)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Wrench className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No repairs found</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
 
 
