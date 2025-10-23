@@ -61,6 +61,19 @@ const updateCustomer = async (req, res) => {
             return res.status(404).json({ error: "Customer not found" });
         }
 
+        if (customer_contact) {
+            const [duplicate] = await connection.query(
+                `SELECT customer_id FROM customers 
+     WHERE customer_contact = ? AND signup_id = ? AND customer_id != ?`,
+                [customer_contact, signup_id, customer_id]
+            );
+
+            if (duplicate.length > 0) {
+                await connection.rollback();
+                return res.status(400).json({ error: "Customer with same contact number alredy exists" });
+            }
+        }
+
         await connection.query(`
             UPDATE customers
             SET
@@ -184,10 +197,10 @@ const getSingleCustomer = async (req, res) => {
             [customer_id, signup_id]
         );
 
-        const pendingPayments = invoiceRows.filter(inv => 
-            inv.due_amount > 0 && 
-            inv.status && 
-            inv.status.toLowerCase() !== 'draft' && 
+        const pendingPayments = invoiceRows.filter(inv =>
+            inv.due_amount > 0 &&
+            inv.status &&
+            inv.status.toLowerCase() !== 'draft' &&
             inv.status.toLowerCase() !== 'cancelled'
         );
 

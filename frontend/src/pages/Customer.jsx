@@ -4,7 +4,7 @@ import axiosInstance from '../api/axios';
 import Sidebar from '../components/Sidebar';
 import ENDPOINTS from '../api/endpoint';
 import { AuthContext } from '../context/AuthContext';
- import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Calendar, Eye, RefreshCw,  Sparkles,FileText,Receipt,ArrowLeft, Clock, XCircle, Wrench, ClipboardList} from 'lucide-react';
+ import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Calendar, Eye, RefreshCw,  Sparkles,FileText,Receipt,ArrowLeft, Clock, XCircle, Wrench, ClipboardList,Edit2,Save} from 'lucide-react';
  import { SearchActionBar } from '../components/SearchActionBar';
 import { memo,useCallback  } from 'react';
 const MemoizedSidebar = memo(Sidebar);
@@ -354,69 +354,45 @@ export const CustomerList = () => {
     setCurrentPage(1);
   }, [searchTerm, customers]);
 
-  // const fetchCustomers = async (isManualRefresh = false) => {
-  //   try {
-  //     if (!isManualRefresh) {
-  //       setLoading(true);
-  //     } else {
-  //       setIsRefreshing(true);
-  //     }
+  const fetchCustomers = async (isManualRefresh = false) => {
+    try {
+      if (!isManualRefresh) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
       
-  //     const response = await axiosInstance.get(ENDPOINTS.CUSTOMER.CUSTOMER_LIST);
-  //     const sortedCustomers = (response.data.customers || []).sort((a, b) => {
-  //       const dateA = new Date(`${a.created_date} ${a.created_time || '00:00:00'}`);
-  //       const dateB = new Date(`${b.created_date} ${b.created_time || '00:00:00'}`);
-  //       return dateB - dateA;
-  //     });
-  //     setCustomers(sortedCustomers);
-  //     setError(null);
-  //   } catch (err) {
-  //     const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Failed to fetch customers';
-  //     setError(errorMessage);
-  //     console.error('Customer fetch error:', err);
-  //   } finally {
-  //     setLoading(false);
-  //     setIsRefreshing(false);
-  //   }
-  // };
-const fetchCustomers = async (isManualRefresh = false) => {
-  try {
-    if (!isManualRefresh) {
-      setLoading(true);
-    } else {
-      setIsRefreshing(true);
-    }
-    
-    const response = await axiosInstance.get(ENDPOINTS.CUSTOMER.CUSTOMER_LIST);
-    const sortedCustomers = (response.data.customers || []).sort((a, b) => {
-      const dateA = new Date(`${a.created_date} ${a.created_time || '00:00:00'}`);
-      const dateB = new Date(`${b.created_date} ${b.created_time || '00:00:00'}`);
-      return dateB - dateA;
-    });
-    setCustomers(sortedCustomers);
-    setError(null);
-  } catch (err) {
-    // Don't show error if it's just a "no customer found" message
-    const errorMessage = err.response?.data?.message || err.response?.data?.error || '';
-    
-    // Check if it's a "no customer found" scenario
-    if (errorMessage.toLowerCase().includes('no customer found') || 
-        errorMessage.toLowerCase().includes('customer not found') ||
-        err.response?.status === 400) {
-      // Treat as empty list, not an error
-      setCustomers([]);
+      const response = await axiosInstance.get(ENDPOINTS.CUSTOMER.CUSTOMER_LIST);
+      const sortedCustomers = (response.data.customers || []).sort((a, b) => {
+        const dateA = new Date(`${a.created_date} ${a.created_time || '00:00:00'}`);
+        const dateB = new Date(`${b.created_date} ${b.created_time || '00:00:00'}`);
+        return dateB - dateA;
+      });
+      setCustomers(sortedCustomers);
       setError(null);
-      console.log('No customers available');
-    } else {
-      // Real error - show error message
-      setError(errorMessage || 'Failed to fetch customers');
-      console.error('Customer fetch error:', err);
+    } catch (err) {
+      // Don't show error if it's just a "no customer found" message
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || '';
+      
+      // Check if it's a "no customer found" scenario
+      if (errorMessage.toLowerCase().includes('no customer found') || 
+          errorMessage.toLowerCase().includes('customer not found') ||
+          err.response?.status === 400) {
+        // Treat as empty list, not an error
+        setCustomers([]);
+        setError(null);
+        console.log('No customers available');
+      } else {
+        // Real error - show error message
+        setError(errorMessage || 'Failed to fetch customers');
+        console.error('Customer fetch error:', err);
+      }
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
     }
-  } finally {
-    setLoading(false);
-    setIsRefreshing(false);
-  }
-};
+  };
+
   const filterCustomers = () => {
     if (!searchTerm.trim()) {
       setFilteredCustomers(customers);
@@ -458,6 +434,10 @@ const fetchCustomers = async (isManualRefresh = false) => {
 
   const handleViewCustomer = (customerId) => {
     navigate(`/customers/detail/${customerId}`);
+  };
+
+  const handleEditCustomer = (customerId) => {
+    navigate(`/customers/edit/${customerId}`);
   };
 
   const handleSearchChange = (e) => {
@@ -670,13 +650,24 @@ const fetchCustomers = async (isManualRefresh = false) => {
                               {formatTime(customer.created_time)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center">
-                              <button
-                                onClick={() => handleViewCustomer(customer.customer_id)}
-                                className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition font-medium"
-                              >
-                                <Eye className="h-4 w-4" />
-                                <span>View</span>
-                              </button>
+                              <div className="flex items-center justify-center space-x-2">
+                                <button
+                                  onClick={() => handleEditCustomer(customer.customer_id)}
+                                  className="inline-flex items-center space-x-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition font-medium"
+                                  title="Edit customer"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                  
+                                </button>
+                                <button
+                                  onClick={() => handleViewCustomer(customer.customer_id)}
+                                  className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition font-medium"
+                                  title="View customer details"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -718,6 +709,374 @@ const fetchCustomers = async (isManualRefresh = false) => {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export const EditCustomer = () => {
+  const navigate = useNavigate();
+  const { customerId } = useParams();
+  const { user, logout } = useContext(AuthContext);
+  
+  const [formData, setFormData] = useState({
+    customer_name: '',
+    customer_contact: '',
+    customer_email: '',
+    customer_address: ''
+  });
+
+  const [originalData, setOriginalData] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+
+  useEffect(() => {
+    fetchCustomerData();
+  }, [customerId]);
+
+  const fetchCustomerData = async () => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get(
+        `${ENDPOINTS.CUSTOMER.CUSTOMER_DETAIL}/${customerId}`
+      );
+      
+      const { profile } = response.data;
+      const customerData = {
+        customer_name: profile.customer_name || '',
+        customer_contact: profile.customer_contact || '',
+        customer_email: profile.customer_email === 'NA' ? '' : (profile.customer_email || ''),
+        customer_address: profile.customer_address === 'NA' ? '' : (profile.customer_address || '')
+      };
+      
+      setFormData(customerData);
+      setOriginalData(customerData);
+    } catch (error) {
+      console.error('Error fetching customer:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          'Failed to fetch customer details';
+      showNotification('error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.customer_name.trim()) {
+      newErrors.customer_name = 'Customer name is required';
+    }
+
+    if (!formData.customer_contact.trim()) {
+      newErrors.customer_contact = 'Customer contact is required';
+    } else if (!/^\d{10}$/.test(formData.customer_contact)) {
+      newErrors.customer_contact = 'Contact number must be 10 digits';
+    }
+
+    if (formData.customer_email.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customer_email)) {
+        newErrors.customer_email = 'Email must be valid';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+    setTimeout(() => {
+      setNotification({ show: false, type: '', message: '' });
+    }, 5000);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const updateData = {
+        customer_name: formData.customer_name,
+        customer_contact: formData.customer_contact,
+        customer_email: formData.customer_email || undefined,
+        customer_address: formData.customer_address || undefined,
+      };
+
+      const response = await axiosInstance.put(
+        `${ENDPOINTS.CUSTOMER.UPDATE_CUSTOMER}/${customerId}`,
+        updateData
+      );
+      
+      showNotification('success', response.data.message || 'Customer updated successfully');
+      
+      setTimeout(() => {
+        navigate(`/customers/detail/${customerId}`);
+      }, 1500);
+
+    } catch (error) {
+      console.error('Error updating customer:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message ||
+                          'Failed to update customer. Please try again.';
+      showNotification('error', errorMessage);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    navigate(`/customers/detail/${customerId}`);
+  };
+
+  const handleNavigation = (path) => {
+    navigate(path);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const hasChanges = () => {
+    if (!originalData) return false;
+    return JSON.stringify(formData) !== JSON.stringify(originalData);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading customer details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex">
+      <MemoizedSidebar
+        onNavigate={handleNavigation}
+        onLogout={handleLogout}
+        currentUser={user}
+        currentPath={location.pathname}
+      />
+
+      <div className="flex-1 flex flex-col min-h-screen">
+        <header className="bg-white shadow-lg border-b border-gray-100">
+          <div className="px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+                <button
+                  onClick={handleCancel}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <ArrowLeft className="h-5 w-5 text-gray-600" />
+                </button>
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+                  <Edit2 className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-amber-600 bg-clip-text text-transparent">
+                    Edit Customer
+                  </h1>
+                  <p className="text-sm text-gray-600 flex items-center mt-1">
+                    <Sparkles className="h-3 w-3 mr-1 text-amber-500" />
+                    Update customer information
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {notification.show && (
+            <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg transform transition-all animate-in slide-in-from-top ${
+              notification.type === 'success'
+                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+                : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300'
+            }`}>
+              {notification.type === 'success' ? (
+                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <p className={`text-sm font-medium ${
+                  notification.type === 'success' ? 'text-green-800' : 'text-red-800'
+                }`}>
+                  {notification.message}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-6 text-white">
+              <h2 className="text-xl font-bold flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                Customer Information
+              </h2>
+              <p className="text-amber-100 mt-1 text-sm">Update the details below to modify customer information</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <div className="group">
+                <label htmlFor="customer_name" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <User className="h-4 w-4 text-amber-500" />
+                  <span>Customer Name <span className="text-red-500">*</span></span>
+                </label>
+                <input
+                  type="text"
+                  id="customer_name"
+                  name="customer_name"
+                  value={formData.customer_name}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all shadow-sm ${
+                    errors.customer_name ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-amber-300'
+                  }`}
+                  placeholder="Enter customer name"
+                />
+                {errors.customer_name && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{errors.customer_name}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="group">
+                <label htmlFor="customer_contact" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Phone className="h-4 w-4 text-amber-500" />
+                  <span>Contact Number <span className="text-red-500">*</span></span>
+                </label>
+                <input
+                  type="tel"
+                  id="customer_contact"
+                  name="customer_contact"
+                  value={formData.customer_contact}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all shadow-sm ${
+                    errors.customer_contact ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-amber-300'
+                  }`}
+                  placeholder="Enter 10-digit contact number"
+                  maxLength="10"
+                />
+                {errors.customer_contact && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{errors.customer_contact}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="group">
+                <label htmlFor="customer_email" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Mail className="h-4 w-4 text-amber-500" />
+                  <span>Email Address</span>
+                </label>
+                <input
+                  type="email"
+                  id="customer_email"
+                  name="customer_email"
+                  value={formData.customer_email}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all shadow-sm ${
+                    errors.customer_email ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-amber-300'
+                  }`}
+                  placeholder="Enter email address (optional)"
+                />
+                {errors.customer_email && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{errors.customer_email}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="group">
+                <label htmlFor="customer_address" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <MapPin className="h-4 w-4 text-amber-500" />
+                  <span>Address</span>
+                </label>
+                <textarea
+                  id="customer_address"
+                  name="customer_address"
+                  value={formData.customer_address}
+                  onChange={handleChange}
+                  rows="4"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all resize-none shadow-sm hover:border-amber-300"
+                  placeholder="Enter customer address (optional)"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || !hasChanges()}
+                  className="px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:from-amber-700 hover:to-orange-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg transform hover:scale-105"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-5 shadow-md">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-bold text-amber-900">Information</h3>
+                <p className="text-sm text-amber-800 mt-1">
+                  Fields marked with <span className="text-red-500 font-semibold">*</span> are required.
+                  The Save button will be disabled if no changes are made.
+                </p>
+              </div>
             </div>
           </div>
         </main>
@@ -1182,5 +1541,6 @@ export const CustomerDetail = () => {
     </div>
   );
 };
+
 
 

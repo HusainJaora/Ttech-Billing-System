@@ -6,7 +6,7 @@ import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import CreateUser from './pages/admin/CreateUser';
-import {Customer,CustomerList,CustomerDetail}  from './pages/Customer';
+import {Customer,CustomerList,CustomerDetail, EditCustomer}  from './pages/Customer';
 
 
 function App() {
@@ -44,6 +44,15 @@ function App() {
           />
 
           <Route
+           path="/customers/edit/:customerId"
+             element={
+              <ProtectedRoute>
+                <EditCustomer />
+              </ProtectedRoute>
+            }
+            />
+
+          <Route
            path="/customers/detail/:customerId"
              element={
               <ProtectedRoute>
@@ -51,8 +60,6 @@ function App() {
               </ProtectedRoute>
             }
             />
-
-
 
 
 
