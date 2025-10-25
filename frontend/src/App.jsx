@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import CreateUser from './pages/admin/CreateUser';
+import {Technician,TechnicianList,EditTechnician,TechnicianDetail} from './pages/Master/Technician';
 import {Customer,CustomerList,CustomerDetail, EditCustomer}  from './pages/Customer';
 
 
@@ -60,6 +61,47 @@ function App() {
               </ProtectedRoute>
             }
             />
+
+            
+
+            <Route
+           path="/master/add-technician"
+             element={
+              <ProtectedRoute>
+                <Technician />
+              </ProtectedRoute>
+            }
+            />
+
+            <Route
+           path="/master/edit-technician/:technicianId"
+             element={
+              <ProtectedRoute>
+                <EditTechnician />
+              </ProtectedRoute>
+            }
+            />
+        
+
+            <Route
+           path="/master/technician/list"
+             element={
+              <ProtectedRoute>
+                <TechnicianList />
+              </ProtectedRoute>
+            }
+            />
+
+            <Route
+           path="/technicians/detail/:technicianId"
+             element={
+              <ProtectedRoute>
+                <TechnicianDetail />
+              </ProtectedRoute>
+            }
+            />
+
+          
 
 
 

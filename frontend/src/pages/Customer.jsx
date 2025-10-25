@@ -1,11 +1,11 @@
 import { useState,useContext,useEffect  } from 'react';
-import { useNavigate,useParams  } from 'react-router-dom';
+import { useNavigate,useParams,useLocation} from 'react-router-dom';
 import axiosInstance from '../api/axios';
 import Sidebar from '../components/Sidebar';
 import ENDPOINTS from '../api/endpoint';
 import { AuthContext } from '../context/AuthContext';
  import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Calendar, Eye, RefreshCw,  Sparkles,FileText,Receipt,ArrowLeft, Clock, XCircle, Wrench, ClipboardList,Edit2,Save} from 'lucide-react';
- import { SearchActionBar } from '../components/SearchActionBar';
+import { SearchActionBar } from '../components/SearchActionBar';
 import { memo,useCallback  } from 'react';
 const MemoizedSidebar = memo(Sidebar);
 import { ExportButton } from '../components/ExportButton';
@@ -15,6 +15,7 @@ import { Pagination } from '../components/Pagination';
 
 export const Customer = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -333,6 +334,7 @@ export const Customer = () => {
 
 export const CustomerList = () => { 
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useContext(AuthContext);
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
@@ -422,15 +424,14 @@ export const CustomerList = () => {
     fetchCustomers(true);
   };
 
-  // Memoize callbacks for stable references
-  const handleNavigation = useCallback((path) => {
+ const handleNavigation = (path) => {
     navigate(path);
-  }, [navigate]);
+  };
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = async () => {
     await logout();
     navigate('/login');
-  }, [logout, navigate]);
+  };
 
   const handleViewCustomer = (customerId) => {
     navigate(`/customers/detail/${customerId}`);
@@ -719,6 +720,7 @@ export const CustomerList = () => {
 
 export const EditCustomer = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { customerId } = useParams();
   const { user, logout } = useContext(AuthContext);
   
@@ -851,7 +853,7 @@ export const EditCustomer = () => {
   };
 
   const handleCancel = () => {
-    navigate(`/customers/detail/${customerId}`);
+    navigate(`/customers/list`);
   };
 
   const handleNavigation = (path) => {
@@ -881,6 +883,7 @@ export const EditCustomer = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex">
+      {/* Sidebar Component */}
       <MemoizedSidebar
         onNavigate={handleNavigation}
         onLogout={handleLogout}
@@ -888,7 +891,9 @@ export const EditCustomer = () => {
         currentPath={location.pathname}
       />
 
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen">
+        {/* Header with gradient */}
         <header className="bg-white shadow-lg border-b border-gray-100">
           <div className="px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between">
@@ -899,15 +904,15 @@ export const EditCustomer = () => {
                 >
                   <ArrowLeft className="h-5 w-5 text-gray-600" />
                 </button>
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
                   <Edit2 className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-amber-600 bg-clip-text text-transparent">
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent">
                     Edit Customer
                   </h1>
                   <p className="text-sm text-gray-600 flex items-center mt-1">
-                    <Sparkles className="h-3 w-3 mr-1 text-amber-500" />
+                    <Sparkles className="h-3 w-3 mr-1 text-indigo-500" />
                     Update customer information
                   </p>
                 </div>
@@ -916,7 +921,9 @@ export const EditCustomer = () => {
           </div>
         </header>
 
+        {/* Main Content */}
         <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Notification with animation */}
           {notification.show && (
             <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg transform transition-all animate-in slide-in-from-top ${
               notification.type === 'success'
@@ -938,19 +945,21 @@ export const EditCustomer = () => {
             </div>
           )}
 
+          {/* Form Card with enhanced styling */}
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-6 text-white">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
               <h2 className="text-xl font-bold flex items-center">
                 <User className="h-5 w-5 mr-2" />
                 Customer Information
               </h2>
-              <p className="text-amber-100 mt-1 text-sm">Update the details below to modify customer information</p>
+              <p className="text-indigo-100 mt-1 text-sm">Update the details below to modify customer information</p>
             </div>
 
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              {/* Customer Name */}
               <div className="group">
                 <label htmlFor="customer_name" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                  <User className="h-4 w-4 text-amber-500" />
+                  <User className="h-4 w-4 text-indigo-500" />
                   <span>Customer Name <span className="text-red-500">*</span></span>
                 </label>
                 <input
@@ -959,8 +968,8 @@ export const EditCustomer = () => {
                   name="customer_name"
                   value={formData.customer_name}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all shadow-sm ${
-                    errors.customer_name ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-amber-300'
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                    errors.customer_name ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
                   }`}
                   placeholder="Enter customer name"
                 />
@@ -972,9 +981,10 @@ export const EditCustomer = () => {
                 )}
               </div>
 
+              {/* Customer Contact */}
               <div className="group">
                 <label htmlFor="customer_contact" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                  <Phone className="h-4 w-4 text-amber-500" />
+                  <Phone className="h-4 w-4 text-indigo-500" />
                   <span>Contact Number <span className="text-red-500">*</span></span>
                 </label>
                 <input
@@ -983,8 +993,8 @@ export const EditCustomer = () => {
                   name="customer_contact"
                   value={formData.customer_contact}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all shadow-sm ${
-                    errors.customer_contact ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-amber-300'
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                    errors.customer_contact ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
                   }`}
                   placeholder="Enter 10-digit contact number"
                   maxLength="10"
@@ -997,9 +1007,10 @@ export const EditCustomer = () => {
                 )}
               </div>
 
+              {/* Customer Email */}
               <div className="group">
                 <label htmlFor="customer_email" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                  <Mail className="h-4 w-4 text-amber-500" />
+                  <Mail className="h-4 w-4 text-indigo-500" />
                   <span>Email Address</span>
                 </label>
                 <input
@@ -1008,8 +1019,8 @@ export const EditCustomer = () => {
                   name="customer_email"
                   value={formData.customer_email}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all shadow-sm ${
-                    errors.customer_email ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-amber-300'
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                    errors.customer_email ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
                   }`}
                   placeholder="Enter email address (optional)"
                 />
@@ -1021,9 +1032,10 @@ export const EditCustomer = () => {
                 )}
               </div>
 
+              {/* Customer Address */}
               <div className="group">
                 <label htmlFor="customer_address" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                  <MapPin className="h-4 w-4 text-amber-500" />
+                  <MapPin className="h-4 w-4 text-indigo-500" />
                   <span>Address</span>
                 </label>
                 <textarea
@@ -1032,11 +1044,12 @@ export const EditCustomer = () => {
                   value={formData.customer_address}
                   onChange={handleChange}
                   rows="4"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all resize-none shadow-sm hover:border-amber-300"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none shadow-sm hover:border-indigo-300"
                   placeholder="Enter customer address (optional)"
                 />
               </div>
 
+              {/* Form Actions */}
               <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
                 <button
                   type="button"
@@ -1049,7 +1062,7 @@ export const EditCustomer = () => {
                 <button
                   type="submit"
                   disabled={saving || !hasChanges()}
-                  className="px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:from-amber-700 hover:to-orange-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg transform hover:scale-105"
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg transform hover:scale-105"
                 >
                   {saving ? (
                     <>
@@ -1067,12 +1080,13 @@ export const EditCustomer = () => {
             </form>
           </div>
 
-          <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-5 shadow-md">
+          {/* Info Card with enhanced styling */}
+          <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md">
             <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-sm font-bold text-amber-900">Information</h3>
-                <p className="text-sm text-amber-800 mt-1">
+                <h3 className="text-sm font-bold text-blue-900">Information</h3>
+                <p className="text-sm text-blue-800 mt-1">
                   Fields marked with <span className="text-red-500 font-semibold">*</span> are required.
                   The Save button will be disabled if no changes are made.
                 </p>
@@ -1084,9 +1098,9 @@ export const EditCustomer = () => {
     </div>
   );
 };
-
 export const CustomerDetail = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { customerId } = useParams();
   const { user, logout } = useContext(AuthContext);
   
@@ -1130,15 +1144,14 @@ export const CustomerDetail = () => {
     fetchCustomerDetail(true);
   };
 
-  const handleNavigation = useCallback((path) => {
+   const handleNavigation = (path) => {
     navigate(path);
-  }, [navigate]);
+  };
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = async () => {
     await logout();
     navigate('/login');
-  }, [logout, navigate]);
-
+  };
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);

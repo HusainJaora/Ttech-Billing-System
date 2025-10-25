@@ -8,8 +8,8 @@ const {validateDuplicateSupplier,supplierValidation,validateDuplicateTechnician,
 // Supplier
 router.post("/supplier",validateToken,validateDuplicateSupplier,supplierValidation,addSupplier);
 // Technician
-router.post("/add-technician",validateToken,validateDuplicateTechnician,validateTechnician,addTechnician);
+router.post("/technician",validateToken,validateDuplicateTechnician,validateTechnician,addTechnician);
 // Category
-router.post("/add-category",validateToken,validateDuplicateProductCategory,validateProductCategory,addProductCategories);
+router.post("/category",validateToken,validateDuplicateProductCategory,validateProductCategory,addProductCategories);
 
 module.exports = router;

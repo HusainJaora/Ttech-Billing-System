@@ -98,7 +98,7 @@ const getSingleTechnician = async (req, res) => {
 
     try {
         const [rows] = await db.query(
-            `SELECT  technician_id, technician_name, technician_phone
+            `SELECT  technician_id, technician_name, technician_phone,
                 created_date, created_time
          FROM technicians  
          WHERE technician_id = ? AND signup_id = ?`,

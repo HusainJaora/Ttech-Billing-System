@@ -54,7 +54,7 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
       name: 'Master',
       icon: List,
       submenu: [
-        { name: 'Technician', icon: Users, path: '/master/technician' },
+        { name: 'Technician', icon: Users, path: '/master/technician/list' },
         { name: 'Supplier', icon: PackageSearch, path: '/master/supplier' },
         { name: 'Product Categories', icon: Boxes, path: '/master/categories' }
       ]

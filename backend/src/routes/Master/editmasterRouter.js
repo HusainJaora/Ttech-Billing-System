@@ -8,7 +8,7 @@ const {validateDuplicateTechnicianEdit,validateDuplicateSupplierEdit} = require(
 // Supplier
 router.put("/supplier/:supplier_id",validateToken,supplierValidation,validateDuplicateSupplierEdit,updateSupplier);
 // Technician
-router.put("/edit-technician/:technician_id",validateToken,validateDuplicateTechnicianEdit,validateTechnician,updateTechnician);
+router.put("/technician/:technician_id",validateToken,validateDuplicateTechnicianEdit,validateTechnician,updateTechnician);
 // Product category
 router.put("/edit-product_category/:product_category_id",validateToken,validateDuplicateProductCategory,validateProductCategory,updateProductCategories);
 
