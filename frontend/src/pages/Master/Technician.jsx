@@ -1,12 +1,10 @@
 import { useState, useContext, useEffect, memo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../api/axios';
-import Sidebar from '../../components/Sidebar';
 import ENDPOINTS from '../../api/endpoint';
 import { AuthContext } from '../../context/AuthContext';
-import { Wrench, AlertCircle, CheckCircle, Phone, User, Users, Calendar, Eye, RefreshCw, Sparkles, ArrowLeft, Edit2, Save } from 'lucide-react';
+import { Wrench, AlertCircle, CheckCircle, Phone, User, Eye, RefreshCw, Sparkles, ArrowLeft, Edit2, Save } from 'lucide-react';
 import { SearchActionBar } from '../../components/SearchActionBar';
-const MemoizedSidebar = memo(Sidebar);
 import { ExportButton } from '../../components/ExportButton';
 import { Pagination } from '../../components/Pagination';
 
@@ -91,25 +89,11 @@ export const Technician = () => {
     }
   };
 
-  const handleNavigation = useCallback((path) => {
-    navigate(path);
-  }, [navigate]);
 
-  const handleLogout = useCallback(async () => {
-    await logout();
-    navigate('/login');
-  }, [logout, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex">
-      <MemoizedSidebar
-        onNavigate={handleNavigation}
-        onLogout={handleLogout}
-        currentUser={user}
-        currentPath={location.pathname}
-      />
-
-      <div className="flex-1 flex flex-col min-h-screen">
+  
+      <>
         <header className="bg-white shadow-lg border-b border-gray-100">
           <div className="px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between">
@@ -257,15 +241,14 @@ export const Technician = () => {
             </div>
           </div>
         </main>
-      </div>
-    </div>
+      </>
+    
   );
 };  
 
  // Technician List Component
 export const TechnicianList = () => {
   const navigate = useNavigate();
-  const { user, logout } = useContext(AuthContext);
   const [technicians, setTechnicians] = useState([]);
   const [filteredTechnicians, setFilteredTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -348,15 +331,6 @@ export const TechnicianList = () => {
     fetchTechnicians(true);
   };
 
-  const handleNavigation = useCallback((path) => {
-    navigate(path);
-  }, [navigate]);
-
-  const handleLogout = useCallback(async () => {
-    await logout();
-    navigate('/login');
-  }, [logout, navigate]);
-
   const handleViewTechnician = (technicianId) => {
     navigate(`/technicians/detail/${technicianId}`);
   };
@@ -381,15 +355,8 @@ export const TechnicianList = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <MemoizedSidebar
-        onNavigate={handleNavigation}
-        onLogout={handleLogout}
-        currentUser={user}
-        currentPath={location.pathname}
-      />
-
-      <div className="flex-1 flex flex-col min-h-screen">
+    
+      <>
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
@@ -598,8 +565,8 @@ export const TechnicianList = () => {
             </div>
           </div>
         </main>
-      </div>
-    </div>
+      </>
+    
   );
 };
 
@@ -607,13 +574,10 @@ export const TechnicianList = () => {
 export const EditTechnician = () => {
   const navigate = useNavigate();
   const { technicianId } = useParams();
-  const { user, logout } = useContext(AuthContext);
-  
   const [formData, setFormData] = useState({
     technician_name: '',
     technician_phone: ''
   });
-
   const [originalData, setOriginalData] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
@@ -725,16 +689,6 @@ export const EditTechnician = () => {
     navigate(`/master/technician/list`);
   };
 
-    const handleNavigation = useCallback((path) => {
-    navigate(path);
-  }, [navigate]);
-
-  const handleLogout = useCallback(async () => {
-    await logout();
-    navigate('/login');
-  }, [logout, navigate]);
-
-
   const hasChanges = () => {
     if (!originalData) return false;
     return JSON.stringify(formData) !== JSON.stringify(originalData);
@@ -752,17 +706,10 @@ export const EditTechnician = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex">
-      {/* Sidebar Component */}
-      <MemoizedSidebar
-        onNavigate={handleNavigation}
-        onLogout={handleLogout}
-        currentUser={user}
-        currentPath={location.pathname}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen">
+   
+     
+      
+      < >
         {/* Header with gradient */}
         <header className="bg-white shadow-lg border-b border-gray-100">
           <div className="px-4 sm:px-6 lg:px-8 py-6">
@@ -922,8 +869,8 @@ export const EditTechnician = () => {
             </div>
           </div>
         </main>
-      </div>
-    </div>
+      </>
+    
   );
 };
 
@@ -931,9 +878,7 @@ export const EditTechnician = () => {
 // // Technician Detail Component
 export const TechnicianDetail = () => {
   const navigate = useNavigate();
-  const { technicianId } = useParams();
-  const { user, logout } = useContext(AuthContext);
-  
+  const { technicianId } = useParams(); 
   const [technicianData, setTechnicianData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -969,17 +914,6 @@ export const TechnicianDetail = () => {
     }
   };
 
-
-
-  const handleNavigation = useCallback((path) => {
-    navigate(path);
-  }, [navigate]);
-
-  const handleLogout = useCallback(async () => {
-    await logout();
-    navigate('/login');
-  }, [logout, navigate]);
-
   const handleEdit = () => {
     navigate(`/master/edit-technician/${technicianId}`);
   };
@@ -997,13 +931,7 @@ export const TechnicianDetail = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex">
-        <MemoizedSidebar
-          onNavigate={handleNavigation}
-          onLogout={handleLogout}
-          currentUser={user}
-          currentPath={location.pathname}
-        />
+      
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
@@ -1017,20 +945,13 @@ export const TechnicianDetail = () => {
             </button>
           </div>
         </div>
-      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <MemoizedSidebar
-        onNavigate={handleNavigation}
-        onLogout={handleLogout}
-        currentUser={user}
-        currentPath={location.pathname}
-      />
+    
 
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div >
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
@@ -1091,6 +1012,6 @@ export const TechnicianDetail = () => {
           </div>
         </main>
       </div>
-    </div>
+    
   );
 };

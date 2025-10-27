@@ -42,6 +42,20 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
     if (window.innerWidth < 1024) {
       setIsSidebarOpen(false);
     }
+    
+    // Close all expanded menus when navigating to a different section
+    const targetMenu = menuItems.find(item => 
+      item.submenu?.some(subItem => subItem.path === path)
+    );
+    
+    // If navigating to a top-level item (like Dashboard) or a different submenu section
+    // close all other expanded menus
+    if (!targetMenu || targetMenu.path === path) {
+      setExpandedMenus({});
+    } else {
+      // Keep only the target menu expanded
+      setExpandedMenus({ [targetMenu.name]: true });
+    }
   };
 
   const menuItems = [
@@ -101,7 +115,42 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
       return true;
     }
     if (item.submenu) {
-      return item.submenu.some(subItem => subItem.path === currentPath);
+      return item.submenu.some(subItem => {
+        if (!subItem.path) return false;
+        
+        // Exact match
+        if (currentPath === subItem.path) return true;
+        
+        // For child routes, we need to match the specific section
+        // /master/technician/list should match /master/technician/edit/1
+        // but /master/supplier should NOT match /master/technician/edit/1
+        
+        const subItemParts = subItem.path.split('/').filter(p => p);
+        const currentParts = currentPath.split('/').filter(p => p);
+        
+        // Need at least as many parts as the subitem path
+        if (currentParts.length < subItemParts.length - 1) return false;
+        
+        // For paths like /master/technician/list
+        // We need to check that all parts match up to the second-to-last part
+        // subItemParts: ['master', 'technician', 'list']
+        // We want to match ['master', 'technician', 'edit', '1']
+        // But NOT ['master', 'supplier']
+        
+        if (subItemParts.length === 2) {
+          // For paths like /master/supplier (only 2 parts)
+          // Only match exact or with additional segments after
+          return currentParts[0] === subItemParts[0] && 
+                 currentParts[1] === subItemParts[1];
+        } else {
+          // For paths like /master/technician/list (3+ parts)
+          // Match up to second-to-last part
+          for (let i = 0; i < subItemParts.length - 1; i++) {
+            if (subItemParts[i] !== currentParts[i]) return false;
+          }
+          return true;
+        }
+      });
     }
     return false;
   };
@@ -203,7 +252,32 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
                   <div className="mt-1 ml-4 space-y-1">
                     {item.submenu.map((subItem) => {
                       const SubIcon = subItem.icon;
-                      const isSubItemActive = subItem.path === currentPath;
+                      
+                      // Check if current path matches or is a child route of this submenu item
+                      let isSubItemActive = subItem.path === currentPath;
+                      
+                      if (!isSubItemActive && subItem.path) {
+                        const subItemParts = subItem.path.split('/').filter(p => p);
+                        const currentParts = currentPath.split('/').filter(p => p);
+                        
+                        if (currentParts.length >= subItemParts.length - 1) {
+                          if (subItemParts.length === 2) {
+                            // For 2-part paths like /master/supplier
+                            isSubItemActive = currentParts[0] === subItemParts[0] && 
+                                            currentParts[1] === subItemParts[1];
+                          } else {
+                            // For 3+ part paths like /master/technician/list
+                            let matches = true;
+                            for (let i = 0; i < subItemParts.length - 1; i++) {
+                              if (subItemParts[i] !== currentParts[i]) {
+                                matches = false;
+                                break;
+                              }
+                            }
+                            isSubItemActive = matches;
+                          }
+                        }
+                      }
                       
                       if (subItem.action === 'logout') {
                         return (

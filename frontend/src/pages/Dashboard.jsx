@@ -1,13 +1,11 @@
 import { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import axiosInstance from '../api/axios';
 import { RefreshCw } from 'lucide-react';
 import DashboardComponent from '../components/Dashboard';
-import Sidebar from '../components/Sidebar';
 
 export default function Dashboard() {
-  const navigate = useNavigate();
+
   const { user, logout } = useContext(AuthContext);
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,14 +48,6 @@ export default function Dashboard() {
     fetchDashboardData();
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  const handleNavigation = (path) => {
-    navigate(path);
-  };
 
   const handleRepairStatusClick = async (status) => {
     try {
@@ -82,17 +72,9 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar Component */}
-      <Sidebar 
-        onNavigate={handleNavigation}
-        onLogout={handleLogout}
-        currentUser={user}
-        currentPath={location.pathname}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen">
+    <>
+    
+      
         {/* Header - adjusted for sidebar */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="px-4 sm:px-6 lg:px-8 py-4">
@@ -128,7 +110,6 @@ export default function Dashboard() {
           onRepairStatusClick={handleRepairStatusClick}
           onOutstandingClick={handleOutstandingClick}
         />
-      </div>
-    </div>
+    </>
   );
 }

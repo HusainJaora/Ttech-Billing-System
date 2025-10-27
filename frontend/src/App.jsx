@@ -5,128 +5,43 @@ import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import MainLayout from './layout/MainLayout';
 import CreateUser from './pages/admin/CreateUser';
-import {Technician,TechnicianList,EditTechnician,TechnicianDetail} from './pages/Master/Technician';
-import {Customer,CustomerList,CustomerDetail, EditCustomer}  from './pages/Customer';
-
+import {Technician, TechnicianList, EditTechnician, TechnicianDetail} from './pages/Master/Technician';
+import {Customer, CustomerList, CustomerDetail, EditCustomer} from './pages/Customer';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          {/* Public Routes - No Layout */}
           <Route path="/login" element={<LoginPage />} />
           
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-          path="/customers/add"
-           element={
-              <ProtectedRoute>
-              <Customer />
-            </ProtectedRoute>
-              }
-           />
-           
-           <Route
-            path="/customers/list"
-            element={
-              <ProtectedRoute>
-                <CustomerList />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-           path="/customers/edit/:customerId"
-             element={
-              <ProtectedRoute>
-                <EditCustomer />
-              </ProtectedRoute>
-            }
-            />
-
-          <Route
-           path="/customers/detail/:customerId"
-             element={
-              <ProtectedRoute>
-                <CustomerDetail />
-              </ProtectedRoute>
-            }
-            />
-
+          {/* All Protected Routes with MainLayout - Sidebar persists for ALL pages */}
+          <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+            {/* Dashboard */}
+            <Route path="/dashboard" element={<Dashboard />} />
             
-
-            <Route
-           path="/master/add-technician"
-             element={
-              <ProtectedRoute>
-                <Technician />
-              </ProtectedRoute>
-            }
-            />
-
-            <Route
-           path="/master/edit-technician/:technicianId"
-             element={
-              <ProtectedRoute>
-                <EditTechnician />
-              </ProtectedRoute>
-            }
-            />
-        
-
-            <Route
-           path="/master/technician/list"
-             element={
-              <ProtectedRoute>
-                <TechnicianList />
-              </ProtectedRoute>
-            }
-            />
-
-            <Route
-           path="/technicians/detail/:technicianId"
-             element={
-              <ProtectedRoute>
-                <TechnicianDetail />
-              </ProtectedRoute>
-            }
-            />
-
+            {/* Customer Routes */}
+            <Route path="/customers/add" element={<Customer />} />
+            <Route path="/customers/list" element={<CustomerList />} />
+            <Route path="/customers/edit/:customerId" element={<EditCustomer />} />
+            <Route path="/customers/detail/:customerId" element={<CustomerDetail />} />
+            
+            {/* Technician Routes */}
+            <Route path="/master/add-technician" element={<Technician />} />
+            <Route path="/master/edit-technician/:technicianId" element={<EditTechnician />} />
+            <Route path="/master/technician/list" element={<TechnicianList />} />
+            <Route path="/technicians/detail/:technicianId" element={<TechnicianDetail />} />
+            
+           
+          </Route>
+           {/* Admin Routes - These need admin check inside components or separate wrapper */}
+          <Route path="/admin/dashboard" element={<ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/create-user" element={<ProtectedRoute requireAdmin={true}><CreateUser /></ProtectedRoute>} />
           
-
-
-
-
-
-          
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute requireAdmin={true}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/create-user"
-            element={
-              <ProtectedRoute requireAdmin={true}>
-                <CreateUser/>
-              </ProtectedRoute>
-            }
-          />
-          
-
-          
+          {/* Redirects */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
