@@ -16,11 +16,20 @@ const ENDPOINTS = {
   },
   TECHNICIAN: {
     ADD_TECHNICIAN: `${BASE_URL}/master-add/technician`,
-    TECHNICIAN_LIST: `${BASE_URL}/master-view/technician-list`,
-    TECHNICIAN_DETAIL: `${BASE_URL}/master-view/technician-detail`,
     UPDATE_TECHNICIAN: `${BASE_URL}/master-edit/technician`,
+    DELETE_TECHNICIAN:`${BASE_URL}/master-delete/technician`,
+    TECHNICIAN_DETAIL: `${BASE_URL}/master-view/technician-detail`,
+    TECHNICIAN_LIST: `${BASE_URL}/master-view/technician-list`,
     EXPORT_TECHNICIAN: `${BASE_URL}/export/technicians`
-  }
+  },
+  SUPPLIER: {
+    ADD_SUPPLIER: `${BASE_URL}/master-add/supplier`,
+    SUPPLIER_LIST: `${BASE_URL}/master-view/supplier-list`,
+    DELETE_SUPPLIER:`${BASE_URL}/master-delete/supplier`,
+    SUPPLIER_DETAIL: `${BASE_URL}/master-view/supplier-detail`,
+    UPDATE_SUPPLIER: `${BASE_URL}/master-edit/supplier`,
+    EXPORT_SUPPLIER: `${BASE_URL}/export/suppliers`
+  },
 };
 
 export default ENDPOINTS;

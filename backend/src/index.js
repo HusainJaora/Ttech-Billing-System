@@ -32,7 +32,7 @@ const userDashboardRoute = require("./routes/dashboard/userDashboardRoute.js");
 const app = express();
 
 app.use(cors({
-    origin: 'http://localhost:5173', // ← Must match your React app URL EXACTLY
+    origin: 'http://localhost:5173', 
     credentials: true, // ← CRITICAL: This allows cookies to be sent
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']

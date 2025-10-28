@@ -10,7 +10,7 @@ router.put("/supplier/:supplier_id",validateToken,supplierValidation,validateDup
 // Technician
 router.put("/technician/:technician_id",validateToken,validateDuplicateTechnicianEdit,validateTechnician,updateTechnician);
 // Product category
-router.put("/edit-product_category/:product_category_id",validateToken,validateDuplicateProductCategory,validateProductCategory,updateProductCategories);
+router.put("/product_category/:product_category_id",validateToken,validateDuplicateProductCategory,validateProductCategory,updateProductCategories);
 
 
 module.exports = router;

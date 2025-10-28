@@ -6,9 +6,9 @@ const {deleteSupplier,deleteTechnician,deleteProductCategories} = require("../..
 // supplier
 router.delete("/supplier/:supplier_id",validateToken,deleteSupplier);
 // Technician
-router.delete("/delete-technician/:technician_id",validateToken,deleteTechnician);
+router.delete("/technician/:technician_id",validateToken,deleteTechnician);
 // Product category
-router.delete("/delete-productCategory/:product_category_id",validateToken,deleteProductCategories);
+router.delete("/productCategory/:product_category_id",validateToken,deleteProductCategories);
 
 
 module.exports = router;    
