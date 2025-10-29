@@ -28,7 +28,7 @@ const addSupplier = async (req, res) => {
           supplier_Ledger_name?.trim() || null,
           supplier_contact.trim(),
           supplier_address?.trim() || null,
-          supplier_contact_name?.trim() || null,
+          supplier_contact_name?.trim(),
           supplier_other?.trim() || null,
           signup_id
         ]

@@ -1,9 +1,8 @@
-import { useState, useContext, useEffect, memo, useCallback } from 'react';
+import { useState, useEffect} from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../api/axios';
 import ENDPOINTS from '../../api/endpoint';
-import { AuthContext } from '../../context/AuthContext';
-import { Wrench, AlertCircle, CheckCircle, Phone, User, Eye, RefreshCw, Sparkles, ArrowLeft, Edit2, Save } from 'lucide-react';
+import { Wrench, AlertCircle, CheckCircle, Phone, User, RefreshCw, Sparkles, ArrowLeft, Edit2, Save } from 'lucide-react';
 import { SearchActionBar } from '../../components/SearchActionBar';
 import { ExportButton } from '../../components/ExportButton';
 import { Pagination } from '../../components/Pagination';
@@ -11,8 +10,6 @@ import {MasterActions} from '../../components/Buttons/MasterActionButton';
 
 // Add Technician Component
 export const Technician = () => {
-  const navigate = useNavigate();
-  const { user, logout } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     technician_name: '',
     technician_phone: ''
@@ -247,330 +244,7 @@ export const Technician = () => {
   );
 };  
 
- // Technician List Component
-// export const TechnicianList = () => {
-//   const navigate = useNavigate();
-//   const [technicians, setTechnicians] = useState([]);
-//   const [filteredTechnicians, setFilteredTechnicians] = useState([]);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState(null);
-//   const [searchTerm, setSearchTerm] = useState('');
-//   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-//   const [currentPage, setCurrentPage] = useState(1);
-//   const ITEMS_PER_PAGE = 20;
-
-//   useEffect(() => {
-//     fetchTechnicians();
-//   }, []);
-
-//   useEffect(() => {
-//     filterTechnicians();
-//   }, [searchTerm, technicians]);
-
-//   const fetchTechnicians = async (isManualRefresh = false) => {
-//     try {
-//       if (!isManualRefresh) {
-//         setLoading(true);
-//       } else {
-//         setIsRefreshing(true);
-//       }
-      
-//       const response = await axiosInstance.get(ENDPOINTS.TECHNICIAN.TECHNICIAN_LIST);
-//       const sortedTechnicians = (response.data.technicians || []).sort((a, b) => {
-//         return b.technician_id - a.technician_id;
-//       });
-//       setTechnicians(sortedTechnicians);
-//       setError(null);
-//     } catch (err) {
-//       const errorMessage = err.response?.data?.message || err.response?.data?.error || '';
-      
-//       if (errorMessage.toLowerCase().includes('no technician found') || 
-//           errorMessage.toLowerCase().includes('technician not found') ||
-//           err.response?.status === 400) {
-//         setTechnicians([]);
-//         setError(null);
-//         console.log('No technicians available');
-//       } else {
-//         setError(errorMessage || 'Failed to fetch technicians');
-//         console.error('Technician fetch error:', err);
-//       }
-//     } finally {
-//       setLoading(false);
-//       setIsRefreshing(false);
-//     }
-//   };
-
-//   const filterTechnicians = () => {
-//     if (!searchTerm.trim()) {
-//       setFilteredTechnicians(technicians);
-//       setCurrentPage(1);
-//       return;
-//     }
-
-//     const term = searchTerm.toLowerCase().trim();
-//     const filtered = technicians.filter(technician => {
-//       const name = (technician.technician_name || '').toLowerCase();
-//       const phone = (technician.technician_phone || '').toString();
-//       return name.includes(term) || phone.includes(term);
-//     });
-//     setFilteredTechnicians(filtered);
-//     setCurrentPage(1);
-//   };
-
-//   const totalPages = Math.ceil(filteredTechnicians.length / ITEMS_PER_PAGE);
-//   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-//   const endIndex = startIndex + ITEMS_PER_PAGE;
-//   const currentTechnicians = filteredTechnicians.slice(startIndex, endIndex);
-
-//   const handlePageChange = (page) => {
-//     setCurrentPage(page);
-//     window.scrollTo({ top: 0, behavior: 'smooth' });
-//   };
-
-//   const handleManualRefresh = () => {
-//     fetchTechnicians(true);
-//   };
-
-//   const handleViewTechnician = (technicianId) => {
-//     navigate(`/technicians/detail/${technicianId}`);
-//   };
-
-//   const handleEditTechnician = (technicianId) => {
-//     navigate(`/master/edit-technician/${technicianId}`);
-//   };
-
-//   const handleSearchChange = (e) => {
-//     setSearchTerm(e.target.value);
-//   };
-
-//   if (loading && technicians.length === 0) {
-//     return (
-//       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-//         <div className="text-center">
-//           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
-//           <p className="mt-4 text-gray-600 font-medium">Loading technicians...</p>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   return (
-    
-//       <>
-//         <header className="bg-white shadow-sm border-b border-gray-200">
-//           <div className="px-4 sm:px-6 lg:px-8 py-4">
-//             <div className="flex items-center justify-between">
-//               <div className="flex items-center space-x-4 ml-12 lg:ml-0">
-//                 <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-//                   <Wrench className="h-6 w-6 text-indigo-600" />
-//                 </div>
-//                 <div>
-//                   <h1 className="text-2xl font-bold text-gray-900">Technician List</h1>
-//                   <p className="text-sm text-gray-600">
-//                     Total {filteredTechnicians.length} technician{filteredTechnicians.length !== 1 ? 's' : ''}
-//                     {filteredTechnicians.length > 0 && ` • Page ${currentPage} of ${totalPages}`}
-//                   </p>
-//                 </div>
-//               </div>
-//               <div className="flex items-center space-x-3">
-//                 <button
-//                   onClick={handleManualRefresh}
-//                   disabled={isRefreshing}
-//                   className="p-2 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
-//                   title="Refresh technician list"
-//                 >
-//                   <RefreshCw className={`h-5 w-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-//                 </button>
-
-//                 {/* Integrated ExportButton Component */}
-//                 {ENDPOINTS.TECHNICIAN?.EXPORT_TECHNICIAN && (
-//                   <ExportButton
-//                     endpoint={ENDPOINTS.TECHNICIAN.EXPORT_TECHNICIAN}
-//                     axiosInstance={axiosInstance}
-//                     defaultFilters={{ q: '', from_date: '', to_date: '' }}
-//                     buttonText="Export"
-//                     modalTitle="Export Technicians"
-//                     fileNamePrefix="Technician_List"
-//                     filterFields={[
-//                       {
-//                         name: 'q',
-//                         label: 'Search (Name or Phone)',
-//                         type: 'text',
-//                         placeholder: 'Optional search term',
-//                         gridSpan: 2
-//                       },
-//                       {
-//                         name: 'from_date',
-//                         label: 'From Date',
-//                         type: 'date'
-//                       },
-//                       {
-//                         name: 'to_date',
-//                         label: 'To Date',
-//                         type: 'date'
-//                       }
-//                     ]}
-//                     onExportSuccess={(filename) => {
-//                       console.log('Export successful:', filename);
-//                     }}
-//                     onExportError={(error) => {
-//                       console.error('Export failed:', error);
-//                     }}
-//                   />
-//                 )}
-
-//                 <button
-//                   onClick={() => navigate('/master/add-technician')}
-//                   className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-//                 >
-//                   <Wrench className="h-4 w-4" />
-//                   <span className="hidden sm:inline">Add Technician</span>
-//                 </button>
-//               </div>
-//             </div>
-//           </div>
-//         </header>
-
-//         <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-//           {isRefreshing && (
-//             <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-2">
-//               <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
-//               <span className="text-sm text-blue-700">Refreshing technician list...</span>
-//             </div>
-//           )}
-
-//           {error && (
-//             <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-lg p-4 flex items-start space-x-3">
-//               <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-//               <div className="flex-1">
-//                 <p className="text-sm font-medium text-red-800">{error}</p>
-//               </div>
-//               <button
-//                 onClick={handleManualRefresh}
-//                 className="text-sm text-red-600 hover:text-red-800 font-medium"
-//               >
-//                 Retry
-//               </button>
-//             </div>
-//           )}
-
-//           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-//             <SearchActionBar
-//               searchValue={searchTerm}
-//               onSearchChange={handleSearchChange}
-//               placeholder="Search by name or phone number..."
-//             />
-//           </div>
-
-//           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-//             <div className="overflow-x-auto">
-//               {currentTechnicians.length > 0 ? (
-//                 <>
-//                   <table className="w-full">
-//                     <thead className="bg-gray-50 border-b border-gray-200">
-//                       <tr>
-//                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-//                           Sr. No.
-//                         </th>
-//                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-//                           Name
-//                         </th>
-//                         <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-//                           Actions
-//                         </th>
-//                       </tr>
-//                     </thead>
-//                     <tbody className="bg-white divide-y divide-gray-200">
-//                       {currentTechnicians.map((technician) => {
-//                         const serialNumber = technicians.length - technicians.findIndex(t => t.technician_id === technician.technician_id);
-//                         return (
-//                           <tr
-//                             key={technician.technician_id}
-//                             className="hover:bg-gray-50 transition"
-//                           >
-//                             <td className="px-6 py-4 whitespace-nowrap">
-//                               <span className="text-sm font-medium text-gray-700">
-//                                 {serialNumber}
-//                               </span>
-//                             </td>
-//                             <td className="px-6 py-4 whitespace-nowrap">
-//                               <div className="flex items-center space-x-3">
-//                                 <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-//                                   <Wrench className="h-5 w-5 text-indigo-600" />
-//                                 </div>
-//                                 <div>
-//                                   <p className="text-sm font-medium text-gray-900">
-//                                     {technician.technician_name}
-//                                   </p>
-//                                 </div>
-//                               </div>
-//                             </td>
-//                             <td className="px-6 py-4 whitespace-nowrap text-center">
-//                               <div className="flex items-center justify-center space-x-2">
-//                                 <button
-//                                   onClick={() => handleEditTechnician(technician.technician_id)}
-//                                   className="inline-flex items-center space-x-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition font-medium"
-//                                   title="Edit technician"
-//                                 >
-//                                   <Edit2 className="h-4 w-4" />
-//                                 </button>
-//                                 <button
-//                                   onClick={() => handleViewTechnician(technician.technician_id)}
-//                                   className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition font-medium"
-//                                   title="View technician details"
-//                                 >
-//                                   <Eye className="h-4 w-4" />
-//                                 </button>
-//                               </div>
-//                             </td>
-//                           </tr>
-//                         );
-//                       })}
-//                     </tbody>
-//                   </table>
-
-//                   <Pagination
-//                     currentPage={currentPage}
-//                     totalPages={totalPages}
-//                     totalItems={filteredTechnicians.length}
-//                     itemsPerPage={ITEMS_PER_PAGE}
-//                     onPageChange={handlePageChange}
-//                     showInfo={true}
-//                     itemLabel="technicians"
-//                   />
-//                 </>
-//               ) : (
-//                 <div className="text-center py-16">
-//                   <Wrench className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-//                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
-//                     {searchTerm ? 'No technicians found' : 'No technicians yet'}
-//                   </h3>
-//                   <p className="text-gray-500 mb-6">
-//                     {searchTerm
-//                       ? 'Try adjusting your search terms'
-//                       : 'Get started by adding your first technician'
-//                     }
-//                   </p>
-//                   {!searchTerm && (
-//                     <button
-//                       onClick={() => navigate('/master/add-technician')}
-//                       className="inline-flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
-//                     >
-//                       <Wrench className="h-5 w-5" />
-//                       <span>Add First Technician</span>
-//                     </button>
-//                   )}
-//                 </div>
-//               )}
-//             </div>
-//           </div>
-//         </main>
-//       </>
-    
-//   );
-// };
-
+// Technician List
 export const TechnicianList = () => {
   const navigate = useNavigate();
   const [technicians, setTechnicians] = useState([]);
@@ -601,11 +275,16 @@ export const TechnicianList = () => {
       }
       
       const response = await axiosInstance.get(ENDPOINTS.TECHNICIAN.TECHNICIAN_LIST);
-      const sortedTechnicians = (response.data.technicians || []).sort((a, b) => {
-        return b.technician_id - a.technician_id;
-      });
-      setTechnicians(sortedTechnicians);
-      setError(null);
+      
+      // Check if response has message (no technicians found)
+      if (response.data.message) {
+        setTechnicians([]);
+        setError(null);
+      } else {
+        // API returns technicians array directly, already sorted by technician_id DESC
+        setTechnicians(response.data.technicians || []);
+        setError(null);
+      }
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.response?.data?.error || '';
       
@@ -635,8 +314,7 @@ export const TechnicianList = () => {
     const term = searchTerm.toLowerCase().trim();
     const filtered = technicians.filter(technician => {
       const name = (technician.technician_name || '').toLowerCase();
-      const phone = (technician.technician_phone || '').toString();
-      return name.includes(term) || phone.includes(term);
+      return name.includes(term);
     });
     setFilteredTechnicians(filtered);
     setCurrentPage(1);
@@ -693,6 +371,15 @@ export const TechnicianList = () => {
     setSearchTerm(e.target.value);
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = date.toLocaleString('en-US', { month: 'short' });
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
+
   if (loading && technicians.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -743,7 +430,7 @@ export const TechnicianList = () => {
                   filterFields={[
                     {
                       name: 'q',
-                      label: 'Search (Name or Phone)',
+                      label: 'Search (Technician Name)',
                       type: 'text',
                       placeholder: 'Optional search term',
                       gridSpan: 2
@@ -829,7 +516,7 @@ export const TechnicianList = () => {
           <SearchActionBar
             searchValue={searchTerm}
             onSearchChange={handleSearchChange}
-            placeholder="Search by name or phone number..."
+            placeholder="Search by technician name..."
           />
         </div>
 
@@ -845,6 +532,12 @@ export const TechnicianList = () => {
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Created Date
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Created Time
                       </th>
                       <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Actions
@@ -875,6 +568,16 @@ export const TechnicianList = () => {
                                 </p>
                               </div>
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-600">
+                              {formatDate(technician.created_date)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-600">
+                              {technician.created_time || 'N/A'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
                             <MasterActions
@@ -1238,8 +941,7 @@ export const EditTechnician = () => {
   );
 };
 
-
-// // Technician Detail Component
+// Technician Detail Component
 export const TechnicianDetail = () => {
   const navigate = useNavigate();
   const { technicianId } = useParams(); 
@@ -1295,66 +997,65 @@ export const TechnicianDetail = () => {
 
   if (error) {
     return (
-      
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Technician</h2>
-            <p className="text-gray-600 mb-6">{error}</p>
-            <button
-              onClick={() => navigate('/technicians/list')}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-            >
-              Back to Technician List
-            </button>
-          </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Technician</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => navigate('/master/technician/list')}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          >
+            Back to Technician List
+          </button>
         </div>
+      </div>
     );
   }
 
   return (
-    
-
-      <div >
-        <header className="bg-white shadow-sm border-b border-gray-200">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4 ml-12 lg:ml-0">
-                <button
-                  onClick={() => navigate('/master/technician/list')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition"
-                >
-                  <ArrowLeft className="h-5 w-5 text-gray-600" />
-                </button>
-                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <Wrench className="h-6 w-6 text-indigo-600" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{technicianData?.technician_name}</h1>
-                  <p className="text-sm text-gray-600">Technician Details</p>
-                </div>
+    <div>
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+              <button
+                onClick={() => navigate('/master/technician/list')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
+              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <Wrench className="h-6 w-6 text-indigo-600" />
               </div>
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleEdit}
-                  className="flex items-center space-x-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition"
-                >
-                  <Edit2 className="h-4 w-4" />
-                  <span>Edit</span>
-                </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{technicianData?.technician_name}</h1>
+                <p className="text-sm text-gray-600">Technician Details</p>
               </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleEdit}
+                className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+              >
+                <Edit2 className="h-4 w-4" />
+                <span>Edit</span>
+              </button>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {isRefreshing && (
-            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-2">
-              <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
-              <span className="text-sm text-blue-700">Refreshing technician details...</span>
-            </div>
-          )}
+      <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isRefreshing && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-2">
+            <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
+            <span className="text-sm text-blue-700">Refreshing technician details...</span>
+          </div>
+        )}
 
+        <div className="space-y-6">
+          {/* Contact Information */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1374,8 +1075,29 @@ export const TechnicianDetail = () => {
               </div>
             </div>
           </div>
-        </main>
-      </div>
-    
+
+          {/* Metadata */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Record Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Created Date</p>
+                <p className="text-base text-gray-900">
+                  {technicianData?.created_date ? new Date(technicianData.created_date).toLocaleDateString('en-IN', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  }) : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Created Time</p>
+                <p className="text-base text-gray-900">{technicianData?.created_time || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 };

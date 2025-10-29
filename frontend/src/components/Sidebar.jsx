@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { 
   Menu,
-  LayoutDashboard, 
+  LayoutDashboard,
+  Building2,
   X, 
   ChevronDown, 
   ChevronRight,
@@ -16,7 +17,6 @@ import {
   FileSpreadsheet,
   User,
   LogOut,
-  PackageSearch,
   Boxes,
   ClipboardList
 } from 'lucide-react';
@@ -69,8 +69,8 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
       icon: List,
       submenu: [
         { name: 'Technician', icon: Users, path: '/master/technician/list' },
-        { name: 'Supplier', icon: PackageSearch, path: '/master/supplier' },
-        { name: 'Product Categories', icon: Boxes, path: '/master/categories' }
+        { name: 'Supplier', icon: Building2, path: '/master/supplier/list' },
+        { name: 'Product Categories', icon: Boxes, path: '/master/categories/list' }
       ]
     },
     {
