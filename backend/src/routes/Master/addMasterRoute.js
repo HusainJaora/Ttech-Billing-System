@@ -10,6 +10,6 @@ router.post("/supplier",validateToken,validateDuplicateSupplier,supplierValidati
 // Technician
 router.post("/technician",validateToken,validateDuplicateTechnician,validateTechnician,addTechnician);
 // Category
-router.post("/category",validateToken,validateDuplicateProductCategory,validateProductCategory,addProductCategories);
+router.post("/product-category",validateToken,validateDuplicateProductCategory,validateProductCategory,addProductCategories);
 
 module.exports = router;

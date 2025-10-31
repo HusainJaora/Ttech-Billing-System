@@ -125,9 +125,9 @@ const getSingleTechnician = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
- 
+
 // ProductCategory
-// Get all ProductCategory no need for single productcategory 
+// Get all ProductCategory 
 const getAllProductCategory = async (req, res) => {
     const { signup_id } = req.user;
 
@@ -151,12 +151,45 @@ const getAllProductCategory = async (req, res) => {
     }
 };
 
+const getSingleProductCategory = async (req, res) => {
+    const { product_category_id } = req.params;
+    const { signup_id } = req.user;
+
+    try {
+        const [rows] = await db.query(
+            `SELECT product_category_id, product_category_name
+             FROM  product_categories
+             WHERE signup_id = ? AND product_category_id = ?
+             ORDER BY product_category_id DESC`,
+            [signup_id, product_category_id]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "Product Category not found." });
+        }
+
+        const productCategory = rows[0];
+
+        const formattedProductCategory = {
+            product_category_id: productCategory.product_category_id,
+            product_category_name: productCategory.product_category_name,
+        };
+
+        res.status(200).json({ productCategory: formattedProductCategory });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+
+
+}
+
 module.exports = {
     getAllSuppliers,
     getSingleSupplier,
     getAllTechnician,
     getSingleTechnician,
-    getAllProductCategory
+    getAllProductCategory,
+    getSingleProductCategory
 }
 
 

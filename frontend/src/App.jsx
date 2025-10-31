@@ -10,6 +10,7 @@ import CreateUser from './pages/admin/CreateUser';
 import {Technician, TechnicianList, EditTechnician, TechnicianDetail} from './pages/Master/Technician';
 import {Customer, CustomerList, CustomerDetail, EditCustomer} from './pages/Customer';
 import { EditSupplier, Supplier, SupplierDetail, SupplierList } from './pages/Master/Supplier';
+import { EditProductCategory, ProductCategory, ProductCategoryList } from './pages/Master/ProductCategories';
 
 function App() {
   return (
@@ -41,6 +42,12 @@ function App() {
             <Route path="/master/edit-supplier/:supplierId" element={<EditSupplier />} />
             <Route path="/suppliers/detail/:supplierId" element={<SupplierDetail />} />
             <Route path="/master/supplier/list" element={<SupplierList />} />
+
+
+            {/* Product Categories Route */}
+            <Route path="/master/add-product-category" element={<ProductCategory />} />
+            <Route path="/master/product-categories/list" element={<ProductCategoryList/>} />
+            <Route path="/master/edit-product-category/:product_category_id" element={<EditProductCategory />} />
         
            
           </Route>

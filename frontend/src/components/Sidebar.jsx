@@ -3,6 +3,7 @@ import {
   Menu,
   LayoutDashboard,
   Building2,
+  Network, 
   X, 
   ChevronDown, 
   ChevronRight,
@@ -17,7 +18,6 @@ import {
   FileSpreadsheet,
   User,
   LogOut,
-  Boxes,
   ClipboardList
 } from 'lucide-react';
 
@@ -70,7 +70,7 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
       submenu: [
         { name: 'Technician', icon: Users, path: '/master/technician/list' },
         { name: 'Supplier', icon: Building2, path: '/master/supplier/list' },
-        { name: 'Product Categories', icon: Boxes, path: '/master/categories/list' }
+        { name: 'Product Categories', icon: Network  , path: '/master/product-categories/list' }
       ]
     },
     {

@@ -5,7 +5,7 @@ const {exportSuppliers,exportTechnician,exportProductCategory,exportInvoice,expo
 
 router.post("/suppliers",validateToken,exportSuppliers);
 router.post("/technicians",validateToken,exportTechnician);
-router.post("/product-categories",validateToken,exportProductCategory);
+router.post("/product-category",validateToken,exportProductCategory);
 router.post("/invoices",validateToken,exportInvoice);
 router.post("/quotations",validateToken,exportQuotation);
 router.post("/inquiries",validateToken,exportInquiries);

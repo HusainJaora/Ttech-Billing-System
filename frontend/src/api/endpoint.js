@@ -30,6 +30,14 @@ const ENDPOINTS = {
     UPDATE_SUPPLIER: `${BASE_URL}/master-edit/supplier`,
     EXPORT_SUPPLIER: `${BASE_URL}/export/suppliers`
   },
+  PRODUCT_CATEGORY: {
+    ADD_PRODUCT_CATEGORY: `${BASE_URL}/master-add/product-category`,
+    PRODUCT_CATEGORY_LIST: `${BASE_URL}/master-view/product-category-list`,
+    DELETE_PRODUCT_CATEGORY:`${BASE_URL}/master-delete/product-category`,
+    PRODUCT_CATEGORY_DETAIL: `${BASE_URL}/master-view/product-category-detail`,
+    UPDATE_PRODUCT_CATEGORY: `${BASE_URL}/master-edit/product-category`,
+    EXPORT_PRODUCT_CATEGORY: `${BASE_URL}/export/product-category`
+  },
 };
 
 export default ENDPOINTS;
