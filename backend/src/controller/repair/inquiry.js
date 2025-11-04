@@ -25,14 +25,19 @@ const addInquiry = async (req, res) => {
 
         await connection.beginTransaction();
         const [existingCustomer] = await connection.query(
-            `SELECT customer_id FROM customers 
+            `SELECT customer_id, customer_name, customer_contact, customer_email, customer_address 
+             FROM customers 
              WHERE signup_id=? AND customer_contact=? 
              LIMIT 1`,
             [signup_id, customer_contact]
         );
+        
         let customer_id;
+        let customerInfo;
+        
         if (existingCustomer.length > 0) {
             customer_id = existingCustomer[0].customer_id;
+            customerInfo = existingCustomer[0];
         } else {
             const newCustomer = await createCustomer(connection, signup_id, {
                 customer_name,
@@ -41,7 +46,15 @@ const addInquiry = async (req, res) => {
                 customer_address
             });
             customer_id = newCustomer.customer_id;
+            customerInfo = {
+                customer_id,
+                customer_name,
+                customer_contact,
+                customer_email,
+                customer_address
+            };
         }
+        
         //  Generate inquiry serial & number
         const now = new Date();
         const month = now.toLocaleString("default", { month: "short" }).toUpperCase();
@@ -57,7 +70,7 @@ const addInquiry = async (req, res) => {
 
         const [inquiryResult] = await connection.query(
             `INSERT INTO inquires 
-             (signup_id, inquiry_serial, inquiry_no, customer_id,notes) 
+             (signup_id, inquiry_serial, inquiry_no, customer_id, notes) 
              VALUES (?, ?, ?, ?, ?)`,
             [signup_id, nextSerial, inquiry_no, customer_id, notes]
         );
@@ -82,8 +95,21 @@ const addInquiry = async (req, res) => {
         return res.status(201).json({
             message: "Inquiry created successfully",
             inquiry_no,
-            customer_id,
-            inquiry_id
+            inquiry_id,
+            inquiry_date: now.toISOString(),
+            customer: {
+                customer_id: customerInfo.customer_id,
+                customer_name: customerInfo.customer_name,
+                customer_contact: customerInfo.customer_contact,
+                customer_email: customerInfo.customer_email,
+                customer_address: customerInfo.customer_address
+            },
+            products: products.map(item => ({
+                product_name: item.product_name,
+                problem_description: item.problem_description || "NA",
+                accessories_given: item.accessories_given || "NA"
+            })),
+            notes: notes || ""
         });
 
     } catch (error) {

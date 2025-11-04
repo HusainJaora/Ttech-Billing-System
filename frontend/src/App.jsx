@@ -2,7 +2,7 @@ import './App.css'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
-import Dashboard from './pages/Dashboard';
+import {Dashboard,OutstandingInvoices} from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './layout/MainLayout';
@@ -11,6 +11,7 @@ import {Technician, TechnicianList, EditTechnician, TechnicianDetail} from './pa
 import {Customer, CustomerList, CustomerDetail, EditCustomer} from './pages/Customer';
 import { EditSupplier, Supplier, SupplierDetail, SupplierList } from './pages/Master/Supplier';
 import { EditProductCategory, ProductCategory, ProductCategoryList } from './pages/Master/ProductCategories';
+import { Inquiry } from './pages/Repair/Inquiry';
 
 function App() {
   return (
@@ -24,6 +25,8 @@ function App() {
           <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
             {/* Dashboard */}
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/invoices/outstanding" element={<OutstandingInvoices />} />
+            
             
             {/* Customer Routes */}
             <Route path="/customers/add" element={<Customer />} />
@@ -48,6 +51,11 @@ function App() {
             <Route path="/master/add-product-category" element={<ProductCategory />} />
             <Route path="/master/product-categories/list" element={<ProductCategoryList/>} />
             <Route path="/master/edit-product-category/:product_category_id" element={<EditProductCategory />} />
+
+            {/* Inquiry Route */}
+            
+            <Route path="/repair/inquiry" element={<Inquiry/>} />
+            
         
            
           </Route>

@@ -12,7 +12,8 @@ const ENDPOINTS = {
     CUSTOMER_LIST:`${BASE_URL}/customer`,
     CUSTOMER_DETAIL:`${BASE_URL}/customer/customer-detail`,
     UPDATE_CUSTOMER:`${BASE_URL}/customer/update-customer`,
-    EXPORT_CUSTOMER:`${BASE_URL}/export/customers`
+    EXPORT_CUSTOMER:`${BASE_URL}/export/customers`,
+    CHECK_BY_CONTACT:`${BASE_URL}/check-customer/by-contact`,
   },
   TECHNICIAN: {
     ADD_TECHNICIAN: `${BASE_URL}/master-add/technician`,
@@ -37,6 +38,14 @@ const ENDPOINTS = {
     PRODUCT_CATEGORY_DETAIL: `${BASE_URL}/master-view/product-category-detail`,
     UPDATE_PRODUCT_CATEGORY: `${BASE_URL}/master-edit/product-category`,
     EXPORT_PRODUCT_CATEGORY: `${BASE_URL}/export/product-category`
+  },
+  INQUIRY: {
+    ADD_INQUIRY: `${BASE_URL}/repair-inquiry/add-inquiry`,
+    // PRODUCT_CATEGORY_LIST: `${BASE_URL}/master-view/product-category-list`,
+    // DELETE_PRODUCT_CATEGORY:`${BASE_URL}/master-delete/product-category`,
+    // PRODUCT_CATEGORY_DETAIL: `${BASE_URL}/master-view/product-category-detail`,
+    // UPDATE_PRODUCT_CATEGORY: `${BASE_URL}/master-edit/product-category`,
+    // EXPORT_PRODUCT_CATEGORY: `${BASE_URL}/export/product-category`
   },
 };
 
