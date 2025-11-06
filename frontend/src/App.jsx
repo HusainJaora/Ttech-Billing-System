@@ -12,6 +12,7 @@ import {Customer, CustomerList, CustomerDetail, EditCustomer} from './pages/Cust
 import { EditSupplier, Supplier, SupplierDetail, SupplierList } from './pages/Master/Supplier';
 import { EditProductCategory, ProductCategory, ProductCategoryList } from './pages/Master/ProductCategories';
 import { Inquiry } from './pages/Repair/Inquiry';
+import ProfilePage from './pages/userProfile/UserProfile';
 
 function App() {
   return (
@@ -27,6 +28,8 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/invoices/outstanding" element={<OutstandingInvoices />} />
             
+            {/* User Profile */}
+            <Route path="/settings/profile" element={<ProfilePage />} />
             
             {/* Customer Routes */}
             <Route path="/customers/add" element={<Customer />} />

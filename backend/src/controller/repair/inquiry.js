@@ -1,4 +1,5 @@
 const db = require("../../db/database");
+const PDFDocument = require('pdfkit');
 const { createCustomer } = require("../../utils/getOrCreateCustomer");
 
 
@@ -367,8 +368,62 @@ const getAllInquiries = async (req, res) => {
       console.error("Error fetching inquiries:", error);
       res.status(500).json({ error: "Internal Server Error" });
     }
-  };
-  
+};
+
+// For PDF genration
+const generateExistingInquiryPDF = async (req, res) => {
+    const { inquiry_id } = req.params;
+    const { signup_id } = req.user;
+
+    try {
+        // Fetch inquiry details
+        const [inquiryRows] = await db.query(`
+            SELECT i.inquiry_id, i.inquiry_no, i.status, i.notes, 
+                   i.created_date, i.created_time,
+                   c.customer_id, c.customer_name, c.customer_contact, 
+                   c.customer_email, c.customer_address
+            FROM inquires i
+            JOIN customers c ON i.customer_id = c.customer_id
+            LEFT JOIN technicians t ON i.technician_id = t.technician_id
+            WHERE i.signup_id = ? AND i.inquiry_id = ?
+        `, [signup_id, inquiry_id]);
+
+        if (inquiryRows.length === 0) {
+            return res.status(404).json({ error: "Inquiry not found" });
+        }
+
+        const inquiry = inquiryRows[0];
+
+        // Fetch inquiry items
+        const [items] = await db.query(`
+            SELECT item_id, product_name, problem_description, accessories_given
+            FROM inquiry_items
+            WHERE inquiry_id = ?
+        `, [inquiry_id]);
+
+         res.status(200).json({
+            inquiry_no: inquiry.inquiry_no,
+            inquiry_date: inquiry.created_date,
+            inquiry_time: inquiry.created_time,
+            status: inquiry.status,
+            notes: inquiry.notes,
+            customer: {
+                customer_name: inquiry.customer_name,
+                customer_contact: inquiry.customer_contact,
+                customer_email: inquiry.customer_email,
+                customer_address: inquiry.customer_address
+            },
+            products: items
+        });
+
+        
+    } catch (error) {
+        console.error('Error generating inquiry PDF:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to generate PDF' });
+        }
+    }
+};
 
 
-module.exports = { addInquiry, updateInquiry, deleteInquiry,getSingleInquiry, getAllInquiries}
+module.exports = { addInquiry, updateInquiry, deleteInquiry,getSingleInquiry, getAllInquiries,generateExistingInquiryPDF}

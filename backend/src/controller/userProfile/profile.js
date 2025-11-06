@@ -1,5 +1,5 @@
 const db = require("../../db/database");
-const { uploader } = require("../../middleware/userProfile/cloudinaryUpload"); // make sure you already have this middleware
+const { uploader } = require("../../middleware/userProfile/cloudinaryUpload"); 
 
 
 const addProfile = async (req, res) => {
@@ -21,21 +21,25 @@ const addProfile = async (req, res) => {
   try {
     await connection.beginTransaction();
 
+    // Build dynamic UPDATE clause
+    const updateClause = `
+      business_name = VALUES(business_name),
+      business_email = VALUES(business_email),
+      address = VALUES(address),
+      mobile_number = VALUES(mobile_number),
+      ${logo_url ? 'logo_url = VALUES(logo_url),' : ''}
+      bank_name = VALUES(bank_name),
+      account_number = VALUES(account_number),
+      ifsc_code = VALUES(ifsc_code),
+      branch_name = VALUES(branch_name)
+    `;
+
     await connection.query(
       `
       INSERT INTO user_profiles 
         (signup_id, business_name, business_email, address, mobile_number, logo_url, bank_name, account_number, ifsc_code, branch_name)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        business_name = VALUES(business_name),
-        business_email = VALUES(business_email),
-        address = VALUES(address),
-        mobile_number = VALUES(mobile_number),
-        logo_url = VALUES(logo_url),
-        bank_name = VALUES(bank_name),
-        account_number = VALUES(account_number),
-        ifsc_code = VALUES(ifsc_code),
-        branch_name = VALUES(branch_name)
+      ON DUPLICATE KEY UPDATE ${updateClause}
       `,
       [
         signup_id,
@@ -63,9 +67,6 @@ const addProfile = async (req, res) => {
 };
 
 
-/**
- * Get Profile by Logged-in User
- */
 const getProfile = async (req, res) => {
   const { signup_id } = req.user;
 

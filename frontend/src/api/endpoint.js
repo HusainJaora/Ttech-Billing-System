@@ -7,6 +7,10 @@ const ENDPOINTS = {
     LOGOUT: `${BASE_URL}/logout`,
     REFRESH_TOKEN: `${BASE_URL}/refresh-token`,
   },
+  USER_PROFILE:{
+    ADD_PROFILE:`${BASE_URL}/profile/add-profile`,
+    GET_PROFILE:`${BASE_URL}/profile`,
+  },
   CUSTOMER: {
     ADD_CUSTOMER: `${BASE_URL}/customer/add-customer`,
     CUSTOMER_LIST:`${BASE_URL}/customer`,
@@ -41,6 +45,8 @@ const ENDPOINTS = {
   },
   INQUIRY: {
     ADD_INQUIRY: `${BASE_URL}/repair-inquiry/add-inquiry`,
+    GET_INQUIRY_DETAIL: `${BASE_URL}/repair-inquiry/inquiry-detail`,
+    DOWNLOAD_PDF: `${BASE_URL}/repair-inquiry/inquiry`,
     // PRODUCT_CATEGORY_LIST: `${BASE_URL}/master-view/product-category-list`,
     // DELETE_PRODUCT_CATEGORY:`${BASE_URL}/master-delete/product-category`,
     // PRODUCT_CATEGORY_DETAIL: `${BASE_URL}/master-view/product-category-detail`,
