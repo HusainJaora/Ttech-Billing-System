@@ -1,7 +1,7 @@
 const db = require("../../db/database");
 
 
-const addTerm = async (req, res) => {
+const invoiceAddTerm = async (req, res) => {
     const { signup_id } = req.user;
     const { terms } = req.body; // expect an array of term strings
   
@@ -15,7 +15,7 @@ const addTerm = async (req, res) => {
   
       // Count existing terms for the user
       const [countResult] = await connection.query(
-        "SELECT COUNT(*) AS count FROM terms_conditions WHERE signup_id = ?",
+        "SELECT COUNT(*) AS count FROM invoice_terms_conditions WHERE signup_id = ?",
         [signup_id]
       );
   
@@ -43,7 +43,7 @@ const addTerm = async (req, res) => {
         term_text = term_text.trim();
         if (!term_text) continue; // skip empty strings
         await connection.query(
-          "INSERT INTO terms_conditions (signup_id, term_text) VALUES (?, ?)",
+          "INSERT INTO invoice_terms_conditions (signup_id, term_text) VALUES (?, ?)",
           [signup_id, term_text]
         );
       }
@@ -63,7 +63,7 @@ const addTerm = async (req, res) => {
   };
 
 // Update term with transaction
-const updateTerm = async (req, res) => {
+const invoiceUpdateTerm = async (req, res) => {
   const { signup_id } = req.user;
   const { term_id } = req.params;
   const { term_text } = req.body;
@@ -77,7 +77,7 @@ const updateTerm = async (req, res) => {
     await connection.beginTransaction();
 
     const [result] = await connection.query(
-      "UPDATE terms_conditions SET term_text = ? WHERE terms_id = ? AND signup_id = ?",
+      "UPDATE invoice_terms_conditions SET term_text = ? WHERE terms_id = ? AND signup_id = ?",
       [term_text.trim(), term_id, signup_id]
     );
 
@@ -101,7 +101,7 @@ const updateTerm = async (req, res) => {
 };
 
 // Delete term with transaction
-const deleteTerm = async (req, res) => {
+const invoiceDeleteTerm = async (req, res) => {
   const { signup_id } = req.user;
   const { term_id } = req.params;
 
@@ -110,7 +110,7 @@ const deleteTerm = async (req, res) => {
     await connection.beginTransaction();
 
     const [result] = await connection.query(
-      "DELETE FROM terms_conditions WHERE terms_id = ? AND signup_id = ?",
+      "DELETE FROM invoice_terms_conditions WHERE terms_id = ? AND signup_id = ?",
       [term_id, signup_id]
     );
 
@@ -131,12 +131,12 @@ const deleteTerm = async (req, res) => {
 };
 
 // Get all terms (no transaction needed)
-const getTerms = async (req, res) => {
+const invoiceGetTerms = async (req, res) => {
   const { signup_id } = req.user;
 
   try {
     const [terms] = await db.query(
-      "SELECT terms_id, term_text, created_date, created_time FROM terms_conditions WHERE signup_id = ?",
+      "SELECT terms_id, term_text, created_date, created_time FROM invoice_terms_conditions WHERE signup_id = ?",
       [signup_id]
     );
 
@@ -147,4 +147,4 @@ const getTerms = async (req, res) => {
   }
 };
 
-module.exports = { addTerm, updateTerm, deleteTerm, getTerms };
+module.exports = { invoiceAddTerm, invoiceUpdateTerm, invoiceDeleteTerm, invoiceGetTerms };

@@ -13,6 +13,9 @@ import { EditSupplier, Supplier, SupplierDetail, SupplierList } from './pages/Ma
 import { EditProductCategory, ProductCategory, ProductCategoryList } from './pages/Master/ProductCategories';
 import { Inquiry } from './pages/Repair/Inquiry';
 import ProfilePage from './pages/userProfile/UserProfile';
+import { InquiryTermsConditions } from './pages/Terms&Conditions/inquiryTerms';
+import { InvoiceTermsConditions } from './pages/Terms&Conditions/invoiceTerms';
+import { QuotationTermsConditions } from './pages/Terms&Conditions/quotationTerm';
 
 function App() {
   return (
@@ -56,10 +59,17 @@ function App() {
             <Route path="/master/edit-product-category/:product_category_id" element={<EditProductCategory />} />
 
             {/* Inquiry Route */}
-            
             <Route path="/repair/inquiry" element={<Inquiry/>} />
-            
-        
+
+
+
+           {/* Terms & Condition Route */}
+           <Route path="/settings/terms/inquiry" element={<InquiryTermsConditions />} />
+           <Route path="/settings/terms/invoice" element={<InvoiceTermsConditions />} />
+           <Route path="/settings/terms/quotation" element={<QuotationTermsConditions />} />
+
+  
+           
            
           </Route>
            {/* Admin Routes - These need admin check inside components or separate wrapper */}

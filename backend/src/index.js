@@ -6,7 +6,7 @@ require("dotenv").config();
 const userAuth = require("./routes/userAuthRoutes.js");
 const logtoutRoute = require("./routes/logoutRoute.js");
 const userProfileRoute = require("./routes/userProfile/profileRoute.js");
-const termsAndConditionRoute = require("./routes/userProfile/terms&ConditionRoute.js");
+const termsAndConditionRoute = require("./routes/Terms&ConditionRoute.js");
 const adminRoute = require("./routes/admin/adminRoute.js");
 const masterAddingRoute = require("./routes/Master/addMasterRoute.js");
 const addquotationRoute = require("./routes/quotation/quotationRoute.js");

@@ -1,7 +1,7 @@
 const db = require("../../db/database");
 
 
-const inquiryAddTerm = async (req, res) => {
+const quotationAddTerm = async (req, res) => {
     const { signup_id } = req.user;
     const { terms } = req.body; // expect an array of term strings
   
@@ -15,7 +15,7 @@ const inquiryAddTerm = async (req, res) => {
   
       // Count existing terms for the user
       const [countResult] = await connection.query(
-        "SELECT COUNT(*) AS count FROM inquiry_terms_conditions WHERE signup_id = ?",
+        "SELECT COUNT(*) AS count FROM quotation_terms_conditions WHERE signup_id = ?",
         [signup_id]
       );
   
@@ -43,7 +43,7 @@ const inquiryAddTerm = async (req, res) => {
         term_text = term_text.trim();
         if (!term_text) continue; // skip empty strings
         await connection.query(
-          "INSERT INTO inquiry_terms_conditions (signup_id, term_text) VALUES (?, ?)",
+          "INSERT INTO quotation_terms_conditions (signup_id, term_text) VALUES (?, ?)",
           [signup_id, term_text]
         );
       }
@@ -63,7 +63,7 @@ const inquiryAddTerm = async (req, res) => {
   };
 
 // Update term with transaction
-const inquiryUpdateTerm = async (req, res) => {
+const quotationUpdateTerm = async (req, res) => {
   const { signup_id } = req.user;
   const { term_id } = req.params;
   const { term_text } = req.body;
@@ -77,7 +77,7 @@ const inquiryUpdateTerm = async (req, res) => {
     await connection.beginTransaction();
 
     const [result] = await connection.query(
-      "UPDATE inquiry_terms_conditions SET term_text = ? WHERE terms_id = ? AND signup_id = ?",
+      "UPDATE quotation_terms_conditions SET term_text = ? WHERE terms_id = ? AND signup_id = ?",
       [term_text.trim(), term_id, signup_id]
     );
 
@@ -101,7 +101,7 @@ const inquiryUpdateTerm = async (req, res) => {
 };
 
 // Delete term with transaction
-const inquiryDeleteTerm = async (req, res) => {
+const quotationDeleteTerm = async (req, res) => {
   const { signup_id } = req.user;
   const { term_id } = req.params;
 
@@ -110,7 +110,7 @@ const inquiryDeleteTerm = async (req, res) => {
     await connection.beginTransaction();
 
     const [result] = await connection.query(
-      "DELETE FROM inquiry_terms_conditions WHERE terms_id = ? AND signup_id = ?",
+      "DELETE FROM quotation_terms_conditions WHERE terms_id = ? AND signup_id = ?",
       [term_id, signup_id]
     );
 
@@ -130,13 +130,13 @@ const inquiryDeleteTerm = async (req, res) => {
   }
 };
 
-// Get all terms 
-const inquiryGetTerms = async (req, res) => {
+// Get all terms (no transaction needed)
+const quotationGetTerms = async (req, res) => {
   const { signup_id } = req.user;
 
   try {
     const [terms] = await db.query(
-      "SELECT terms_id, term_text, created_date, created_time FROM inquiry_terms_conditions WHERE signup_id = ?",
+      "SELECT terms_id, term_text, created_date, created_time FROM quotation_terms_conditions WHERE signup_id = ?",
       [signup_id]
     );
 
@@ -146,4 +146,5 @@ const inquiryGetTerms = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-module.exports = { inquiryAddTerm, inquiryUpdateTerm, inquiryDeleteTerm, inquiryGetTerms };
+
+module.exports = { quotationAddTerm, quotationUpdateTerm, quotationDeleteTerm, quotationGetTerms };

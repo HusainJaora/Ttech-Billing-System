@@ -31,38 +31,29 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
   };
 
   const toggleMenu = (menuName) => {
-    setExpandedMenus(prev => ({
-      ...prev,
-      [menuName]: !prev[menuName]
-    }));
+    setExpandedMenus(prev => {
+      const isCurrentlyExpanded = prev[menuName];
+      // Close all other menus and toggle this one
+      return isCurrentlyExpanded ? {} : { [menuName]: true };
+    });
+    // Close all submenus when switching parent menus
+    setExpandedSubmenus({});
   };
 
   const toggleSubmenu = (submenuName) => {
-    setExpandedSubmenus(prev => ({
-      ...prev,
-      [submenuName]: !prev[submenuName]
-    }));
+    setExpandedSubmenus(prev => {
+      const isCurrentlyExpanded = prev[submenuName];
+      // Close all other submenus and toggle this one
+      return isCurrentlyExpanded ? {} : { [submenuName]: true };
+    });
   };
 
   const handleNavigation = (path) => {
     onNavigate(path);
+    
     // Close sidebar on mobile after navigation
     if (window.innerWidth < 1024) {
       setIsSidebarOpen(false);
-    }
-    
-    // Close all expanded menus when navigating to a different section
-    const targetMenu = menuItems.find(item => 
-      item.submenu?.some(subItem => subItem.path === path)
-    );
-    
-    // If navigating to a top-level item (like Dashboard) or a different submenu section
-    // close all other expanded menus
-    if (!targetMenu || targetMenu.path === path) {
-      setExpandedMenus({});
-    } else {
-      // Keep only the target menu expanded
-      setExpandedMenus({ [targetMenu.name]: true });
     }
   };
 
@@ -125,6 +116,14 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
     }
   ];
 
+  // Helper function to check if a path is active (exact match only for menu items)
+  const isPathActive = (itemPath, currentPath) => {
+    if (!itemPath || !currentPath) return false;
+    
+    // Exact match only
+    return currentPath === itemPath;
+  };
+
   // Check if current path matches any submenu item in this menu
   const isMenuActive = (item) => {
     if (item.path && currentPath === item.path) {
@@ -132,48 +131,17 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
     }
     if (item.submenu) {
       return item.submenu.some(subItem => {
-        if (!subItem.path) return false;
-        
-        // Exact match
-        if (currentPath === subItem.path) return true;
+        // Check direct match
+        if (isPathActive(subItem.path, currentPath)) return true;
         
         // Check nested submenus
         if (subItem.submenu) {
-          const hasActiveNested = subItem.submenu.some(nestedItem => 
-            nestedItem.path === currentPath
+          return subItem.submenu.some(nestedItem => 
+            isPathActive(nestedItem.path, currentPath)
           );
-          if (hasActiveNested) return true;
         }
         
-        // For child routes, we need to match the specific section
-        // /master/technician/list should match /master/technician/edit/1
-        // but /master/supplier should NOT match /master/technician/edit/1
-        
-        const subItemParts = subItem.path.split('/').filter(p => p);
-        const currentParts = currentPath.split('/').filter(p => p);
-        
-        // Need at least as many parts as the subitem path
-        if (currentParts.length < subItemParts.length - 1) return false;
-        
-        // For paths like /master/technician/list
-        // We need to check that all parts match up to the second-to-last part
-        // subItemParts: ['master', 'technician', 'list']
-        // We want to match ['master', 'technician', 'edit', '1']
-        // But NOT ['master', 'supplier']
-        
-        if (subItemParts.length === 2) {
-          // For paths like /master/supplier (only 2 parts)
-          // Only match exact or with additional segments after
-          return currentParts[0] === subItemParts[0] && 
-                 currentParts[1] === subItemParts[1];
-        } else {
-          // For paths like /master/technician/list (3+ parts)
-          // Match up to second-to-last part
-          for (let i = 0; i < subItemParts.length - 1; i++) {
-            if (subItemParts[i] !== currentParts[i]) return false;
-          }
-          return true;
-        }
+        return false;
       });
     }
     return false;
@@ -238,7 +206,7 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
                   // Direct navigation item (Dashboard)
                   <button
                     onClick={() => handleNavigation(item.path)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition group ${
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 group ${
                       isActive
                         ? 'bg-indigo-50 text-indigo-600'
                         : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'
@@ -253,7 +221,7 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
                   // Menu with submenu
                   <button
                     onClick={() => toggleMenu(item.name)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition group ${
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 group ${
                       isActive
                         ? 'bg-indigo-50 text-indigo-600'
                         : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'
@@ -263,60 +231,30 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
                       <Icon className="h-5 w-5" />
                       <span className="font-medium">{item.name}</span>
                     </div>
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4" />
+                                          {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200" />
                     ) : (
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-4 w-4 transition-transform duration-200" />
                     )}
                   </button>
                 )}
 
                 {/* Submenu */}
                 {item.submenu && isExpanded && (
-                  <div className="mt-1 ml-4 space-y-1">
+                  <div className="mt-1 ml-4 space-y-1 animate-in slide-in-from-top-2 duration-200">
                     {item.submenu.map((subItem) => {
                       const SubIcon = subItem.icon;
                       const isSubExpanded = expandedSubmenus[subItem.name];
                       
-                      // Check if current path matches or is a child route of this submenu item
-                      let isSubItemActive = subItem.path === currentPath;
-                      
-                      // Also check if any nested submenu item is active
-                      if (!isSubItemActive && subItem.submenu) {
-                        isSubItemActive = subItem.submenu.some(nestedItem => 
-                          nestedItem.path === currentPath
-                        );
-                      }
-                      
-                      if (!isSubItemActive && subItem.path) {
-                        const subItemParts = subItem.path.split('/').filter(p => p);
-                        const currentParts = currentPath.split('/').filter(p => p);
-                        
-                        if (currentParts.length >= subItemParts.length - 1) {
-                          if (subItemParts.length === 2) {
-                            // For 2-part paths like /master/supplier
-                            isSubItemActive = currentParts[0] === subItemParts[0] && 
-                                            currentParts[1] === subItemParts[1];
-                          } else {
-                            // For 3+ part paths like /master/technician/list
-                            let matches = true;
-                            for (let i = 0; i < subItemParts.length - 1; i++) {
-                              if (subItemParts[i] !== currentParts[i]) {
-                                matches = false;
-                                break;
-                              }
-                            }
-                            isSubItemActive = matches;
-                          }
-                        }
-                      }
+                      // Check if this specific submenu item is active
+                      const isSubItemActive = isPathActive(subItem.path, currentPath);
                       
                       if (subItem.action === 'logout') {
                         return (
                           <button
                             key={subItem.name}
                             onClick={onLogout}
-                            className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition"
+                            className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                           >
                             <SubIcon className="h-4 w-4" />
                             <span>{subItem.name}</span>
@@ -330,7 +268,7 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
                           <div key={subItem.name}>
                             <button
                               onClick={() => toggleSubmenu(subItem.name)}
-                              className={`w-full flex items-center justify-between px-4 py-2 text-sm rounded-lg transition ${
+                              className={`w-full flex items-center justify-between px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
                                 isSubItemActive
                                   ? 'bg-indigo-100 text-indigo-700 font-medium'
                                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -341,24 +279,24 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
                                 <span>{subItem.name}</span>
                               </div>
                               {isSubExpanded ? (
-                                <ChevronDown className="h-3 w-3" />
+                                <ChevronDown className="h-3 w-3 transition-transform duration-200" />
                               ) : (
-                                <ChevronRight className="h-3 w-3" />
+                                <ChevronRight className="h-3 w-3 transition-transform duration-200" />
                               )}
                             </button>
                             
-                            {/* Nested submenu */}
-                            {isSubExpanded && (
-                              <div className="mt-1 ml-4 space-y-1">
+                            {/* Nested submenu - Only show when expanded */}
+                            {isSubExpanded && subItem.submenu && (
+                              <div className="mt-1 ml-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
                                 {subItem.submenu.map((nestedItem) => {
                                   const NestedIcon = nestedItem.icon;
-                                  const isNestedActive = nestedItem.path === currentPath;
+                                  const isNestedActive = isPathActive(nestedItem.path, currentPath);
                                   
                                   return (
                                     <button
                                       key={nestedItem.name}
                                       onClick={() => handleNavigation(nestedItem.path)}
-                                      className={`w-full flex items-center space-x-3 px-4 py-2 text-sm rounded-lg transition ${
+                                      className={`w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
                                         isNestedActive
                                           ? 'bg-indigo-100 text-indigo-700 font-medium'
                                           : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -379,7 +317,7 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
                         <button
                           key={subItem.name}
                           onClick={() => handleNavigation(subItem.path)}
-                          className={`w-full flex items-center space-x-3 px-4 py-2 text-sm rounded-lg transition ${
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-sm rounded-lg transition-all duration-200 ${
                             isSubItemActive
                               ? 'bg-indigo-100 text-indigo-700 font-medium'
                               : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -406,4 +344,4 @@ export default function Sidebar({ onNavigate, onLogout, currentUser, currentPath
       </aside>
     </>
   );
-};
+}

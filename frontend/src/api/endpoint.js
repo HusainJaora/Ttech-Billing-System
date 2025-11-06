@@ -47,12 +47,26 @@ const ENDPOINTS = {
     ADD_INQUIRY: `${BASE_URL}/repair-inquiry/add-inquiry`,
     GET_INQUIRY_DETAIL: `${BASE_URL}/repair-inquiry/inquiry-detail`,
     DOWNLOAD_PDF: `${BASE_URL}/repair-inquiry/inquiry`,
-    // PRODUCT_CATEGORY_LIST: `${BASE_URL}/master-view/product-category-list`,
-    // DELETE_PRODUCT_CATEGORY:`${BASE_URL}/master-delete/product-category`,
-    // PRODUCT_CATEGORY_DETAIL: `${BASE_URL}/master-view/product-category-detail`,
-    // UPDATE_PRODUCT_CATEGORY: `${BASE_URL}/master-edit/product-category`,
-    // EXPORT_PRODUCT_CATEGORY: `${BASE_URL}/export/product-category`
   },
+  INQUIRY_TERMS_CONDITIONS:{
+    ADD_TERM:`${BASE_URL}/terms&Condition/inquiry/add`,
+    UPDATE_TERM:`${BASE_URL}/terms&Condition/inquiry/update-terms`,
+    DELETE_TERM:`${BASE_URL}/terms&Condition/inquiry/delete-terms`,
+    GET_TERM:`${BASE_URL}/terms&Condition/inquiry`
+  },
+  INVOICE_TERMS_CONDITIONS:{
+    ADD_TERM:`${BASE_URL}/terms&Condition/invoice/add`,
+    UPDATE_TERM:`${BASE_URL}/terms&Condition/invoice/update-terms`,
+    DELETE_TERM:`${BASE_URL}/terms&Condition/invoice/delete-terms`,
+    GET_TERM:`${BASE_URL}/terms&Condition/invoice`
+  },
+  QUOTATION_TERMS_CONDITIONS:{
+    ADD_TERM:`${BASE_URL}/terms&Condition/quotation/add`,
+    UPDATE_TERM:`${BASE_URL}/terms&Condition/quotation/update-terms`,
+    DELETE_TERM:`${BASE_URL}/terms&Condition/quotation/delete-terms`,
+    GET_TERM:`${BASE_URL}/terms&Condition/quotation`
+  }
+
 };
 
 export default ENDPOINTS;
