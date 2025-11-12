@@ -1,24 +1,35 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../api/axios';
 import ENDPOINTS from '../api/endpoint';
 import { UserPlus, AlertCircle, CheckCircle, Mail, Phone, MapPin, User, Users, Calendar, Eye, RefreshCw, Sparkles, FileText, Receipt, ArrowLeft, Clock, XCircle, Wrench, ClipboardList, Edit2, Save } from 'lucide-react';
 import { SearchActionBar } from '../components/SearchActionBar';
 import { ExportButton } from '../components/ExportButton';
 import { Pagination } from '../components/Pagination';
+import { 
+  saveToSession,
+  loadFromSession,
+} from '../components/SessionStorage';
 
 // Add Customer Component
 export const Customer = () => {
-  const [formData, setFormData] = useState({
-    customer_name: '',
-    customer_contact: '',
-    customer_email: '',
-    customer_address: ''
-  });
+  const [formData, setFormData] = useState(() => 
+    loadFromSession('addCustomerForm', {
+      customer_name: '',
+      customer_contact: '',
+      customer_email: '',
+      customer_address: ''
+    })
+  );
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+
+  // Save form data to session storage on change
+  useEffect(() => {
+    saveToSession('addCustomerForm', formData);
+  }, [formData]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -80,12 +91,15 @@ export const Customer = () => {
       });
       showNotification('success', response.data.message || 'Customer added successfully');
 
-      setFormData({
+      // Clear form and session storage on success
+      const emptyForm = {
         customer_name: '',
         customer_contact: '',
         customer_email: '',
         customer_address: ''
-      });
+      };
+      setFormData(emptyForm);
+      saveToSession('addCustomerForm', emptyForm);
 
     } catch (error) {
       console.error('Error creating user:', error);
@@ -95,6 +109,17 @@ export const Customer = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClear = () => {
+    const emptyForm = {
+      customer_name: '',
+      customer_contact: '',
+      customer_email: '',
+      customer_address: ''
+    };
+    setFormData(emptyForm);
+    saveToSession('addCustomerForm', emptyForm);
   };
 
   return (
@@ -253,12 +278,7 @@ export const Customer = () => {
             <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
               <button
                 type="button"
-                onClick={() => setFormData({
-                  customer_name: '',
-                  customer_contact: '',
-                  customer_email: '',
-                  customer_address: ''
-                })}
+                onClick={handleClear}
                 className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
                 disabled={loading}
               >
@@ -303,17 +323,44 @@ export const Customer = () => {
   );
 };
 
-// Customer List Component
+// Customer List Component with URL-based state persistence
 export const CustomerList = () => { 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Initialize state from URL params
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page')) || 1);
   const ITEMS_PER_PAGE = 20;
+
+  // Save scroll position before unmount
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveToSession('customerListScroll', window.scrollY);
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      saveToSession('customerListScroll', window.scrollY);
+    };
+  }, []);
+
+  // Restore scroll position
+  useEffect(() => {
+    const scrollY = loadFromSession('customerListScroll', 0);
+    if (scrollY > 0) {
+      window.scrollTo(0, scrollY);
+      // Clear after restoring
+      sessionStorage.removeItem('customerListScroll');
+    }
+  }, [loading]);
 
   useEffect(() => {
     fetchCustomers();
@@ -321,8 +368,19 @@ export const CustomerList = () => {
 
   useEffect(() => {
     filterCustomers();
-    setCurrentPage(1);
+    // Don't reset page if we're coming back from navigation
+    if (!searchParams.get('page')) {
+      setCurrentPage(1);
+    }
   }, [searchTerm, customers]);
+
+  // Update URL when state changes
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set('search', searchTerm);
+    if (currentPage > 1) params.set('page', currentPage.toString());
+    setSearchParams(params, { replace: true });
+  }, [searchTerm, currentPage]);
 
   const fetchCustomers = async (isManualRefresh = false) => {
     try {
@@ -639,7 +697,8 @@ export const CustomerList = () => {
     </>
   );
 };
-// Edit Customer Component
+
+// Edit Customer Component with state persistence
 export const EditCustomer = () => {
   const navigate = useNavigate();
   const { customerId } = useParams();
@@ -657,6 +716,40 @@ export const EditCustomer = () => {
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
+  // Save form data to session storage on change
+  useEffect(() => {
+    if (formData.customer_name || formData.customer_contact) {
+      saveToSession(`editCustomerForm_${customerId}`, formData);
+    }
+  }, [formData, customerId]);
+
+  // Save scroll position
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveToSession(`editCustomerScroll_${customerId}`, window.scrollY);
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      saveToSession(`editCustomerScroll_${customerId}`, window.scrollY);
+    };
+  }, [customerId]);
+
+  // Restore scroll position
+  useEffect(() => {
+    if (!loading) {
+      const scrollY = loadFromSession(`editCustomerScroll_${customerId}`, 0);
+      if (scrollY > 0) {
+        setTimeout(() => {
+          window.scrollTo(0, scrollY);
+          sessionStorage.removeItem(`editCustomerScroll_${customerId}`);
+        }, 100);
+      }
+    }
+  }, [loading, customerId]);
+
   useEffect(() => {
     fetchCustomerData();
   }, [customerId]);
@@ -664,6 +757,10 @@ export const EditCustomer = () => {
   const fetchCustomerData = async () => {
     try {
       setLoading(true);
+      
+      // Check if we have saved form data from a previous session
+      const savedFormData = loadFromSession(`editCustomerForm_${customerId}`, null);
+      
       const response = await axiosInstance.get(
         `${ENDPOINTS.CUSTOMER.CUSTOMER_DETAIL}/${customerId}`
       );
@@ -676,7 +773,16 @@ export const EditCustomer = () => {
         customer_address: profile.customer_address === 'NA' ? '' : (profile.customer_address || '')
       };
       
-      setFormData(customerData);
+      // If we have saved form data and it's different from original, restore it
+      // This handles the case where user made changes and page reloaded
+      if (savedFormData && JSON.stringify(savedFormData) !== JSON.stringify(customerData)) {
+        setFormData(savedFormData);
+      } else {
+        setFormData(customerData);
+        // Clear any stale saved data
+        sessionStorage.removeItem(`editCustomerForm_${customerId}`);
+      }
+      
       setOriginalData(customerData);
     } catch (error) {
       console.error('Error fetching customer:', error);
@@ -746,9 +852,16 @@ export const EditCustomer = () => {
       const updateData = {
         customer_name: formData.customer_name,
         customer_contact: formData.customer_contact,
-        customer_email: formData.customer_email || undefined,
-        customer_address: formData.customer_address || undefined,
+        customer_email: formData.customer_email.trim() || 'NA'
       };
+      if (formData.customer_email.trim()) {
+      updateData.customer_email = formData.customer_email;
+      }
+
+     if (formData.customer_address.trim()) {
+      updateData.customer_address = formData.customer_address;
+     }
+
 
       const response = await axiosInstance.put(
         `${ENDPOINTS.CUSTOMER.UPDATE_CUSTOMER}/${customerId}`,
@@ -756,6 +869,10 @@ export const EditCustomer = () => {
       );
       
       showNotification('success', response.data.message || 'Customer updated successfully');
+      
+      // Clear saved form data on successful update
+      sessionStorage.removeItem(`editCustomerForm_${customerId}`);
+      sessionStorage.removeItem(`editCustomerScroll_${customerId}`);
       
       setTimeout(() => {
         navigate(`/customers/detail/${customerId}`);
@@ -773,7 +890,18 @@ export const EditCustomer = () => {
   };
 
   const handleCancel = () => {
+    // Clear saved form data when canceling
+    sessionStorage.removeItem(`editCustomerForm_${customerId}`);
+    sessionStorage.removeItem(`editCustomerScroll_${customerId}`);
     navigate(`/customers/list`);
+  };
+
+  const handleReset = () => {
+    if (originalData) {
+      setFormData(originalData);
+      sessionStorage.removeItem(`editCustomerForm_${customerId}`);
+      setErrors({});
+    }
   };
 
   const hasChanges = () => {
@@ -945,6 +1073,15 @@ export const EditCustomer = () => {
             <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
               <button
                 type="button"
+                onClick={handleReset}
+                className="px-6 py-3 border-2 border-amber-300 text-amber-700 rounded-xl hover:bg-amber-50 hover:border-amber-400 transition-all font-medium shadow-sm transform hover:scale-105"
+                disabled={saving || !hasChanges()}
+                title="Reset to original values"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
                 onClick={handleCancel}
                 className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
                 disabled={saving}
@@ -979,7 +1116,8 @@ export const EditCustomer = () => {
               <h3 className="text-sm font-bold text-blue-900">Information</h3>
               <p className="text-sm text-blue-800 mt-1">
                 Fields marked with <span className="text-red-500 font-semibold">*</span> are required.
-                The Save button will be disabled if no changes are made.
+                Your changes are automatically saved locally. If the page reloads, your unsaved edits will be restored.
+                Use the <span className="font-semibold">Reset</span> button to discard changes and restore original values.
               </p>
             </div>
           </div>
@@ -988,16 +1126,54 @@ export const EditCustomer = () => {
     </>
   );
 };
-// Customer Detail Component
+
+// Customer Detail Component with tab persistence
 export const CustomerDetail = () => {
   const navigate = useNavigate();
   const { customerId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [customerData, setCustomerData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Save scroll position
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveToSession(`customerDetail_${customerId}_scroll`, window.scrollY);
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      saveToSession(`customerDetail_${customerId}_scroll`, window.scrollY);
+    };
+  }, [customerId]);
+
+  // Restore scroll position
+  useEffect(() => {
+    if (!loading && customerData) {
+      const scrollY = loadFromSession(`customerDetail_${customerId}_scroll`, 0);
+      if (scrollY > 0) {
+        setTimeout(() => {
+          window.scrollTo(0, scrollY);
+          sessionStorage.removeItem(`customerDetail_${customerId}_scroll`);
+        }, 100);
+      }
+    }
+  }, [loading, customerData, customerId]);
+
+  // Update URL when tab changes
+  useEffect(() => {
+    if (activeTab !== 'overview') {
+      setSearchParams({ tab: activeTab }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  }, [activeTab, setSearchParams]);
 
   useEffect(() => {
     fetchCustomerDetail();
@@ -1409,5 +1585,3 @@ export const CustomerDetail = () => {
     </>
   );
 };
-
-

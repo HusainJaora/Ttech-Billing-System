@@ -1,11 +1,696 @@
-import { useState,useRef } from 'react';
+import { useState,useRef,useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axios';
 import ENDPOINTS from '../../api/endpoint';
-import { Plus, Trash2, Save, ArrowRight, ArrowLeft, CheckCircle, Printer, Download, X } from 'lucide-react';
+// import { Plus, Trash2, Save, ArrowRight, ArrowLeft, CheckCircle, Printer, Download, X } from 'lucide-react';
+import {
+  Download,
+  X,
+  Printer,
+  ArrowLeft,
+  ArrowRight,
+  Save,
+  Plus,
+  AlertCircle, 
+  Eye, 
+  Edit2, 
+  Trash2, 
+  UserPlus, 
+  RefreshCw, 
+  CheckCircle, 
+  Clock, 
+  XCircle,
+  FileText,
+  ClipboardList,
+  Calendar,
+  User,
+  Phone,
+  Wrench
+} from 'lucide-react';
+
+import { SearchActionBar } from '../../components/SearchActionBar';
+import { ExportButton } from '../../components/ExportButton';
+import { Pagination } from '../../components/Pagination';
 
 
-// Add Inquiry
-export const Inquiry = () => {
+
+
+
+export const InquiryList = () => {
+  const navigate = useNavigate();
+
+  const [inquiries, setInquiries] = useState([]);
+  const [filteredInquiries, setFilteredInquiries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteInquiryId, setDeleteInquiryId] = useState(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignInquiryId, setAssignInquiryId] = useState(null);
+  const [technicians, setTechnicians] = useState([]);
+  const [selectedTechnician, setSelectedTechnician] = useState('');
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusInquiryId, setStatusInquiryId] = useState(null);
+  const [statusAction, setStatusAction] = useState('');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedInquiryId, setSelectedInquiryId] = useState(null);
+  
+  const ITEMS_PER_PAGE = 20;
+
+  useEffect(() => {
+    fetchInquiries();
+    fetchTechnicians();
+  }, []);
+
+  useEffect(() => {
+    filterInquiries();
+    setCurrentPage(1);
+  }, [searchTerm, inquiries]);
+
+  const fetchInquiries = async (isManualRefresh = false) => {
+    try {
+      if (!isManualRefresh) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+      
+      const response = await axiosInstance.get(ENDPOINTS.INQUIRY.INQUIRY_LIST);
+      const inquiryData = response.data.inquiries || [];
+      setInquiries(inquiryData);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || '';
+      
+      if (errorMessage.toLowerCase().includes('no inquiries found') || 
+          err.response?.status === 404) {
+        setInquiries([]);
+        setError(null);
+      } else {
+        setError(errorMessage || 'Failed to fetch inquiries');
+        console.error('Inquiry fetch error:', err);
+      }
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const fetchTechnicians = async () => {
+    try {
+      const response = await axiosInstance.get(ENDPOINTS.TECHNICIAN.TECHNICIAN_LIST);
+      setTechnicians(response.data.technicians || []);
+    } catch (err) {
+      console.error('Error fetching technicians:', err);
+    }
+  };
+
+  const filterInquiries = () => {
+    if (!searchTerm.trim()) {
+      setFilteredInquiries(inquiries);
+      return;
+    }
+
+    const term = searchTerm.toLowerCase();
+    const filtered = inquiries.filter(inquiry =>
+      inquiry.inquiry_no.toLowerCase().includes(term) ||
+      inquiry.customer_name.toLowerCase().includes(term) ||
+      inquiry.status.toLowerCase().includes(term) ||
+      (inquiry.technician_name && inquiry.technician_name.toLowerCase().includes(term))
+    );
+    setFilteredInquiries(filtered);
+  };
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+    setTimeout(() => {
+      setNotification({ show: false, type: '', message: '' });
+    }, 5000);
+  };
+
+  const handleDeleteClick = (inquiryId) => {
+    setDeleteInquiryId(inquiryId);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await axiosInstance.delete(`${ENDPOINTS.INQUIRY.INQUIRY_LIST}/delete-inquiry/${deleteInquiryId}`);
+      showNotification('success', 'Inquiry deleted successfully');
+      fetchInquiries();
+    } catch (err) {
+      showNotification('error', err.response?.data?.error || 'Failed to delete inquiry');
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteInquiryId(null);
+    }
+  };
+
+  const handleAssignClick = (inquiryId) => {
+    setAssignInquiryId(inquiryId);
+    setSelectedTechnician('');
+    setShowAssignModal(true);
+  };
+
+  const handleAssignConfirm = async () => {
+    if (!selectedTechnician) {
+      showNotification('error', 'Please select a technician');
+      return;
+    }
+
+    try {
+      await axiosInstance.post(
+        `${ENDPOINTS.INQUIRY_STATUS.ASSIGN_TECHNICIAN}/${assignInquiryId}/assign`,
+        { technician_id: selectedTechnician }
+      );
+      showNotification('success', 'Technician assigned successfully');
+      fetchInquiries();
+    } catch (err) {
+      showNotification('error', err.response?.data?.message || 'Failed to assign technician');
+    } finally {
+      setShowAssignModal(false);
+      setAssignInquiryId(null);
+      setSelectedTechnician('');
+    }
+  };
+
+  const handleStatusClick = (inquiryId, action) => {
+    setStatusInquiryId(inquiryId);
+    setStatusAction(action);
+    setShowStatusModal(true);
+  };
+
+  const handleStatusConfirm = async () => {
+    try {
+      const endpoint = statusAction === 'done' 
+        ? `${ENDPOINTS.INQUIRY_STATUS.MARK_DONE}/${statusInquiryId}/status-done`
+        : `${ENDPOINTS.INQUIRY_STATUS.MARK_CANCEL}/${statusInquiryId}/status-cancelled`;
+      
+      await axiosInstance.patch(endpoint);
+      showNotification('success', `Inquiry marked as ${statusAction === 'done' ? 'Done' : 'Cancelled'} successfully`);
+      fetchInquiries();
+    } catch (err) {
+      showNotification('error', err.response?.data?.message || 'Failed to update status');
+    } finally {
+      setShowStatusModal(false);
+      setStatusInquiryId(null);
+      setStatusAction('');
+    }
+  };
+
+  const handlePrintClick = (inquiryId) => {
+  setSelectedInquiryId(inquiryId);
+  setShowReceiptModal(true);
+};
+
+const handleCloseReceipt = () => {
+  setShowReceiptModal(false);
+  setSelectedInquiryId(null);
+};
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock },
+      'technician assigned': { bg: 'bg-blue-100', text: 'text-blue-800', icon: UserPlus },
+      'done': { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
+      'cancelled': { bg: 'bg-red-100', text: 'text-red-800', icon: XCircle },
+    };
+
+    const config = statusConfig[status?.toLowerCase()] || statusConfig['pending'];
+    const Icon = config.icon;
+
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+        <Icon className="h-3 w-3 mr-1" />
+        {status}
+      </span>
+    );
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const totalPages = Math.ceil(filteredInquiries.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentInquiries = filteredInquiries.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleManualRefresh = () => {
+    fetchInquiries(true);
+  };
+
+  if (loading && inquiries.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading inquiries...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <ClipboardList className="h-6 w-6 text-indigo-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Inquiry List</h1>
+                <p className="text-sm text-gray-600">
+                  Total {filteredInquiries.length} inquir{filteredInquiries.length !== 1 ? 'ies' : 'y'}
+                  {filteredInquiries.length > 0 && ` • Page ${currentPage} of ${totalPages}`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleManualRefresh}
+                disabled={isRefreshing}
+                className="p-2 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
+                title="Refresh inquiry list"
+              >
+                <RefreshCw className={`h-5 w-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              
+              <ExportButton
+                endpoint={ENDPOINTS.INQUIRY.EXPORT_INQUIRY}
+                axiosInstance={axiosInstance}
+                defaultFilters={{ q: '', from_date: '', to_date: '' }}
+                buttonText="Export"
+                modalTitle="Export Inquiries"
+                fileNamePrefix="Inquiry List"
+                filterFields={[
+                  {
+                    name: 'q',
+                    label: 'Search',
+                    type: 'text',
+                    placeholder: 'Optional search term',
+                    gridSpan: 2
+                  },
+                  {
+                    name: 'from_date',
+                    label: 'From Date',
+                    type: 'date'
+                  },
+                  {
+                    name: 'to_date',
+                    label: 'To Date',
+                    type: 'date'
+                  }
+                ]}
+              />
+
+              <button
+                onClick={() => navigate('/repairs/inquiry/add')}
+                className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+              >
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Inquiry</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {notification.show && (
+          <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg ${
+            notification.type === 'success'
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+              : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300'
+          }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${
+                notification.type === 'success' ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {notification.message}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isRefreshing && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-2">
+            <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
+            <span className="text-sm text-blue-700">Refreshing inquiry list...</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-lg p-4 flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">{error}</p>
+            </div>
+            <button
+              onClick={handleManualRefresh}
+              className="text-sm text-red-600 hover:text-red-800 font-medium"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+          <SearchActionBar
+            searchValue={searchTerm}
+            onSearchChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by inquiry no, customer name, status, or technician..."
+          />
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {currentInquiries.length > 0 ? (
+            <>
+              {/* Scrollable Table Container */}
+              <div className="overflow-x-auto">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Inquiry No.</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Customer</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Technician</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Date</th>
+                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {currentInquiries.map((inquiry) => (
+                        <tr key={inquiry.inquiry_id} className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm font-medium text-gray-900">{inquiry.inquiry_no}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-3">
+                              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                <User className="h-5 w-5 text-indigo-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{inquiry.customer_name}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2 text-sm text-gray-900">
+                              <Wrench className="h-4 w-4 text-gray-400" />
+                              <span>{inquiry.technician_name || 'Not Assigned'}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {getStatusBadge(inquiry.status)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-2 text-sm text-gray-600">
+                              <Calendar className="h-4 w-4 text-gray-400" />
+                              <span>{formatDate(inquiry.created_date)}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center justify-center space-x-2">
+                        {/* View Details Button */}
+                                <button
+                     onClick={() => navigate(`/inquiries/detail/${inquiry.inquiry_id}`)}
+                     className="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition text-xsfont-medium"
+                     title="View details"
+    >
+      <Eye className="h-3.5 w-3.5" />
+                              </button>
+
+    {/* Print/Download Receipt Button */}
+    <button
+      onClick={() => handlePrintClick(inquiry.inquiry_id)}
+      className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition text-xs font-medium"
+      title="Print/Download Receipt"
+    >
+      <Printer className="h-3.5 w-3.5" />
+    </button>
+    
+    {/* Conditional buttons based on status */}
+    {inquiry.status.toLowerCase() !== 'cancelled' && inquiry.status.toLowerCase() !== 'done' && (
+      <>
+        <button
+          onClick={() => navigate(`/inquiries/edit/${inquiry.inquiry_id}`)}
+          className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition text-xs font-medium"
+          title="Edit inquiry"
+        >
+          <Edit2 className="h-3.5 w-3.5" />
+        </button>
+
+        {inquiry.status.toLowerCase() === 'pending' && (
+          <button
+            onClick={() => handleAssignClick(inquiry.inquiry_id)}
+            className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition text-xs font-medium"
+            title="Assign technician"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+          </button>
+        )}
+
+        {inquiry.status.toLowerCase() === 'technician assigned' && (
+          <button
+            onClick={() => handleStatusClick(inquiry.inquiry_id, 'done')}
+            className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition text-xs font-medium"
+            title="Mark as done"
+          >
+            <CheckCircle className="h-3.5 w-3.5" />
+          </button>
+        )}
+
+        <button
+          onClick={() => handleStatusClick(inquiry.inquiry_id, 'cancel')}
+          className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition text-xs font-medium"
+          title="Cancel inquiry"
+        >
+          <XCircle className="h-3.5 w-3.5" />
+        </button>
+      </>
+    )}
+
+    {inquiry.status.toLowerCase() === 'done' && (
+      <button
+        onClick={() => navigate(`/quotations/create?inquiry_id=${inquiry.inquiry_id}`)}
+        className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition text-xs font-medium"
+        title="Create quotation"
+      >
+        <FileText className="h-3.5 w-3.5 mr-1" />
+        <span>Quotation</span>
+      </button>
+    )}
+
+    <button
+      onClick={() => handleDeleteClick(inquiry.inquiry_id)}
+      className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition text-xs font-medium"
+      title="Delete inquiry"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+    </button>
+  </div>
+</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredInquiries.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={handlePageChange}
+                showInfo={true}
+                itemLabel="inquiries"
+              />
+            </>
+          ) : (
+            <div className="text-center py-16">
+              <ClipboardList className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {searchTerm ? 'No inquiries found' : 'No inquiries yet'}
+              </h3>
+              <p className="text-gray-500 mb-6">
+                {searchTerm
+                  ? 'Try adjusting your search terms'
+                  : 'Get started by adding your first inquiry'
+                }
+              </p>
+              {!searchTerm && (
+                <button
+                  onClick={() => navigate('/repairs/inquiry/add')}
+                  className="inline-flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+                >
+                  <FileText className="h-5 w-5" />
+                  <span>Add First Inquiry</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Delete Inquiry</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this inquiry? This action cannot be undone.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Technician Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <UserPlus className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Assign Technician</h3>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Technician
+              </label>
+              <select
+                value={selectedTechnician}
+                onChange={(e) => setSelectedTechnician(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">Choose a technician...</option>
+                {technicians.map((tech) => (
+                  <option key={tech.technician_id} value={tech.technician_id}>
+                    {tech.technician_name} - {tech.technician_phone}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignConfirm}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+              >
+                Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Change Modal */}
+      {showStatusModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                statusAction === 'done' ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                {statusAction === 'done' ? (
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                ) : (
+                  <XCircle className="h-6 w-6 text-red-600" />
+                )}
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">
+                {statusAction === 'done' ? 'Mark as Done' : 'Cancel Inquiry'}
+              </h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              {statusAction === 'done'
+                ? 'Mark this inquiry as completed? You can create a quotation after this.'
+                : 'Are you sure you want to cancel this inquiry?'}
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowStatusModal(false)}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStatusConfirm}
+                className={`flex-1 px-4 py-2 text-white rounded-lg transition font-medium ${
+                  statusAction === 'done'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Receipt Modal */}
+   {showReceiptModal && selectedInquiryId && (
+           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto">
+           <div className="w-full min-h-screen">
+           <InquiryReceipt 
+            inquiryId={selectedInquiryId} 
+            onClose={handleCloseReceipt}
+          />             </div>
+             </div>
+)} 
+  </>
+
+);};
+
+ export const Inquiry = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [checkingCustomer, setCheckingCustomer] = useState(false);
@@ -161,17 +846,6 @@ export const Inquiry = () => {
     }
   };
 
-  // const handleBack = () => {
-  //   if (currentStep === 1) {
-  //     // Go back to contact lookup
-  //     setCurrentStep(0);
-  //     setContactNumber('');
-  //     setCustomerExists(false);
-  //   } else {
-  //     setCurrentStep(prev => prev - 1);
-  //   }
-  //   setError('');
-  // };
 const handleBack = () => {
     if (currentStep === 1) {
       // Go back to contact lookup
@@ -274,58 +948,70 @@ const handleBack = () => {
   }
 
   // Success screen with option to view receipt
-  if (success && inquiryDetails) {
+if (success && inquiryDetails) {
+  if (showReceipt) {
     return (
-      <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center p-6">
-        <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Inquiry Created Successfully!</h2>
-            <p className="text-gray-600 mb-6">Your inquiry has been registered in the system</p>
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-6 space-y-3 mb-6">
-            <div className="flex justify-between">
-              <span className="font-medium text-gray-700">Inquiry Number:</span>
-              <span className="font-bold text-blue-600">{inquiryDetails.inquiry_no}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-gray-700">Inquiry Date:</span>
-              <span className="text-gray-900">{new Date(inquiryDetails.inquiry_date).toLocaleDateString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-gray-700">Customer:</span>
-              <span className="text-gray-900">{inquiryDetails.customer?.customer_name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-gray-700">Contact:</span>
-              <span className="text-gray-900">{inquiryDetails.customer?.customer_contact}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-gray-700">Products:</span>
-              <span className="text-gray-900">{inquiryDetails.products?.length} item(s)</span>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <button
-              onClick={handleViewReceipt}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              <Printer className="w-5 h-5" />
-              View/Print Receipt
-            </button>
-            <button
-              onClick={handleReset}
-              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Create Another Inquiry
-            </button>
-          </div>
-        </div>
-      </div>
+      <InquiryReceipt 
+        inquiryId={inquiryDetails.inquiry_id} 
+        onClose={() => {
+          setShowReceipt(false);
+          handleReset();
+        }}
+      />
     );
   }
+
+  return (
+    <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center p-6">
+      <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
+        <div className="text-center">
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Inquiry Created Successfully!</h2>
+          <p className="text-gray-600 mb-6">Your inquiry has been registered in the system</p>
+        </div>
+
+        <div className="bg-gray-50 rounded-lg p-6 space-y-3 mb-6">
+          <div className="flex justify-between">
+            <span className="font-medium text-gray-700">Inquiry Number:</span>
+            <span className="font-bold text-blue-600">{inquiryDetails.inquiry_no}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-medium text-gray-700">Inquiry Date:</span>
+            <span className="text-gray-900">{new Date(inquiryDetails.inquiry_date).toLocaleDateString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-medium text-gray-700">Customer:</span>
+            <span className="text-gray-900">{inquiryDetails.customer?.customer_name}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-medium text-gray-700">Contact:</span>
+            <span className="text-gray-900">{inquiryDetails.customer?.customer_contact}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-medium text-gray-700">Products:</span>
+            <span className="text-gray-900">{inquiryDetails.products?.length} item(s)</span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => setShowReceipt(true)}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+          >
+            <Printer className="w-5 h-5" />
+            View/Print Receipt
+          </button>
+          <button
+            onClick={handleReset}
+            className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            Create Another Inquiry
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
@@ -683,9 +1369,27 @@ const handleBack = () => {
   );
 };
 
-// InquiryReceiptPDF Component
-const InquiryReceiptPDF = ({ inquiryData, onClose }) => {
-  const printRef = useRef();
+
+export const InquiryReceipt = ({ inquiryId, onClose }) => {
+  const [receiptData, setReceiptData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchReceiptData();
+  }, [inquiryId]);
+
+  const fetchReceiptData = async () => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get(`${ENDPOINTS.INQUIRY.GET_INQUIRY_RECEIPT}/${inquiryId}`);
+      setReceiptData(response.data);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load receipt data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -695,117 +1399,161 @@ const InquiryReceiptPDF = ({ inquiryData, onClose }) => {
     window.print();
   };
 
-  if (!inquiryData) return null;
-
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric' 
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
     });
   };
 
-  const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-IN', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    return timeString.substring(0, 5);
   };
 
-  return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      {/* Action Buttons - Hidden in print */}
-      <div className="max-w-4xl mx-auto mb-4 flex gap-2 print:hidden">
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          <Printer size={20} />
-          Print Receipt
-        </button>
-        <button
-          onClick={handleDownload}
-          className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          <Download size={20} />
-          Download PDF
-        </button>
-        {onClose && (
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading receipt...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+          <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={onClose}
-            className="ml-auto bg-red-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
           >
-            <X />
+            Close
           </button>
-        )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!receiptData) return null;
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Action Buttons - Hidden when printing */}
+      <div className="max-w-4xl mx-auto  print:hidden sticky top-0  z-10 shadow-sm">
+        <div className="flex gap-2 bg-white rounded-lg p-3 shadow">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            <Printer size={18} />
+            <span className="hidden sm:inline">Print Receipt</span>
+          </button>
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+          >
+            <Download size={18} />
+            <span className="hidden sm:inline">Download PDF</span>
+          </button>
+          <button
+            onClick={onClose}
+            className="ml-auto flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition"
+          >
+            <X size={18} />
+            <span className="hidden sm:inline">Close</span>
+          </button>
+        </div>
       </div>
 
-      {/* PDF Content - Optimized for A4 printing */}
-      <div 
-        ref={printRef}
-        className="max-w-4xl mx-auto bg-white shadow-lg print:shadow-none"
-        style={{ minHeight: '297mm' }}
-      >
-        <div className="p-8 print:p-12">
-          {/* Header */}
-          <div className="border-b-4 border-blue-600 pb-4 mb-6">
-            <h1 className="text-3xl font-bold text-center text-gray-800">
-              INQUIRY RECEIPT
+      {/* Receipt Content - Optimized for A4 printing */}
+      <div className="max-w-[210mm] mx-auto bg-white shadow-lg print:shadow-none mb-4 print:max-w-full m-2">
+        <div className="p-8 print:p-[15mm]">
+          {/* Header with Logo */}
+          <div className="border-b-4 border-blue-600 pb-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              {receiptData.business?.logo_url && (
+                <img 
+                  src={receiptData.business.logo_url} 
+                  alt="Business Logo" 
+                  className="h-25 object-contain"
+                />
+              )}
+              <div className="text-right flex-1">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {receiptData.business?.business_name || 'Your Business Name'}
+                </h2>
+                {receiptData.business?.business_address && (
+                  <p className="text-base text-gray-600">{receiptData.business.business_address}</p>
+                )}
+                {receiptData.business?.business_phone && (
+                  <p className="text-base text-gray-600">Ph: {receiptData.business.business_phone}</p>
+                )}
+                {receiptData.business?.business_email && (
+                  <p className="text-base text-gray-600">{receiptData.business.business_email}</p>
+                )}
+              </div>
+            </div>
+            <h1 className="text-4xl font-bold text-center text-gray-800 uppercase">
+              Inquiry Receipt
             </h1>
-            <p className="text-center text-sm text-gray-600 mt-2">
+            <p className="text-center text-base text-gray-600 mt-2">
               Product Acceptance Acknowledgment
             </p>
           </div>
 
-          {/* Inquiry Info Row */}
-          <div className="flex justify-between mb-6">
+          {/* Inquiry Details Row */}
+          <div className="flex justify-between mb-6 bg-gray-50 p-4 rounded-lg">
             <div>
-              <p className="text-sm text-gray-600">Inquiry Number</p>
-              <p className="text-lg font-bold text-blue-600">
-                {inquiryData.inquiry_no}
+              <p className="text-sm text-gray-600 mb-1">Inquiry Number</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {receiptData.inquiry_no}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Date & Time</p>
-              <p className="text-lg font-semibold">
-                {formatDate(inquiryData.inquiry_date || inquiryData.created_at)}
+              <p className="text-sm text-gray-600 mb-1">Date & Time</p>
+              <p className="text-lg font-semibold text-gray-800">
+                {formatDate(receiptData.inquiry_date)}
               </p>
-              <p className="text-sm text-gray-500">
-                {formatTime(inquiryData.inquiry_date || inquiryData.created_at)}
+              <p className="text-base text-gray-600">
+                {formatTime(receiptData.inquiry_time)}
               </p>
             </div>
           </div>
 
           {/* Customer Information */}
           <div className="bg-gray-50 p-4 rounded-lg mb-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-3">
+            <h3 className="text-lg font-bold text-gray-800 mb-3 border-b pb-2">
               Customer Information
-            </h2>
+            </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-gray-600">Name</p>
-                <p className="font-semibold">
-                  {inquiryData.customer?.customer_name || inquiryData.customer_name || 'N/A'}
+                <p className="text-sm text-gray-600 mb-1">Name</p>
+                <p className="font-semibold text-base text-gray-800">
+                  {receiptData.customer?.customer_name || 'N/A'}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-600">Contact</p>
-                <p className="font-semibold">
-                  {inquiryData.customer?.customer_contact || inquiryData.customer_contact}
+                <p className="text-sm text-gray-600 mb-1">Contact</p>
+                <p className="font-semibold text-base text-gray-800">
+                  {receiptData.customer?.customer_contact}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-600">Email</p>
-                <p className="font-semibold text-sm">
-                  {inquiryData.customer?.customer_email || inquiryData.customer_email || 'N/A'}
+                <p className="text-sm text-gray-600 mb-1">Email</p>
+                <p className="font-semibold text-base text-gray-800">
+                  {receiptData.customer?.customer_email || 'N/A'}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-600">Address</p>
-                <p className="font-semibold text-sm">
-                  {inquiryData.customer?.customer_address || inquiryData.customer_address || 'N/A'}
+                <p className="text-sm text-gray-600 mb-1">Address</p>
+                <p className="font-semibold text-base text-gray-800">
+                  {receiptData.customer?.customer_address || 'N/A'}
                 </p>
               </div>
             </div>
@@ -813,85 +1561,80 @@ const InquiryReceiptPDF = ({ inquiryData, onClose }) => {
 
           {/* Products Table */}
           <div className="mb-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-3">
+            <h3 className="text-lg font-bold text-gray-800 mb-3">
               Products Received
-            </h2>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-blue-600 text-white">
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm w-12">
-                    S.No
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm">
-                    Product Name
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm">
-                    Problem Description
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm">
-                    Accessories Given
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {(inquiryData.products || []).map((product, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-3 py-2 text-center">
-                      {index + 1}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2">
-                      {product.product_name}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm">
-                      {product.problem_description || 'N/A'}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm">
-                      {product.accessories_given || 'N/A'}
-                    </td>
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-300">
+                <thead>
+                  <tr className="bg-blue-600 text-white">
+                    <th className="border border-gray-300 px-3 py-2 text-left text-base w-16">
+                      S.No
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-base">
+                      Product Name
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-base">
+                      Problem Description
+                    </th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-base">
+                      Accessories Given
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {receiptData.products?.map((product, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="border border-gray-300 px-3 py-2 text-center text-base">
+                        {index + 1}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2 text-base font-medium">
+                        {product.product_name}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2 text-base">
+                        {product.problem_description || 'NA'}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2 text-base">
+                        {product.accessories_given || 'NA'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Notes Section */}
-          {inquiryData.notes && inquiryData.notes !== 'NA' && inquiryData.notes.trim() !== '' && (
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-              <h3 className="text-sm font-bold text-gray-800 mb-2">Notes:</h3>
-              <p className="text-sm text-gray-700">{inquiryData.notes}</p>
+          {/* Terms & Conditions */}
+          {receiptData.terms && receiptData.terms.length > 0 && (
+            <div className="border-t border-gray-300 pt-4 mb-6">
+              <h3 className="text-sm font-bold text-gray-800 mb-2">
+                Terms & Conditions:
+              </h3>
+              <ul className="text-xs text-gray-600 space-y-1">
+                {receiptData.terms.map((term, index) => (
+                  <li key={index}>• {term}</li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {/* Terms & Conditions */}
-          <div className="border-t border-gray-300 pt-4 mb-6">
-            <h3 className="text-sm font-bold text-gray-800 mb-2">
-              Terms & Conditions:
-            </h3>
-            <ul className="text-xs text-gray-600 space-y-1">
-              <li>• Please keep this receipt safe for product collection</li>
-              <li>• Repairs will be completed within the estimated time frame</li>
-              <li>• Additional charges may apply if extra parts are required</li>
-              <li>• Products must be collected within 30 days of repair completion</li>
-            </ul>
-          </div>
-
-          {/* Footer with Signature */}
-          <div className="flex justify-between items-end pt-8 border-t-2 border-gray-300">
-            <div>
-              <p className="text-xs text-gray-600 mb-8">Customer Signature</p>
-              <div className="border-t border-gray-400 w-48 pt-1">
-                <p className="text-xs text-gray-500">Date: _____</p>
+          {/* Signatures */}
+          <div className="flex justify-between items-end pt-8 border-t-2 border-gray-300 mt-8">
+            <div className="w-48">
+              <p className="text-xs text-gray-600 mb-12">Customer Signature</p>
+              <div className="border-t border-gray-400 pt-1">
+                <p className="text-xs text-gray-500">Date: _______________</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-600 mb-8">Authorized Signature</p>
-              <div className="border-t border-gray-400 w-48 pt-1">
+            <div className="w-48 text-right">
+              <p className="text-xs text-gray-600 mb-12">Authorized Signature</p>
+              <div className="border-t border-gray-400 pt-1">
                 <p className="text-xs text-gray-500">Service Center Stamp</p>
               </div>
             </div>
           </div>
 
-          {/* Footer Note */}
+          {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-xs text-gray-500 italic">
               This is a computer-generated receipt and serves as proof of product acceptance.
@@ -907,12 +1650,18 @@ const InquiryReceiptPDF = ({ inquiryData, onClose }) => {
       <style>{`
         @media print {
           @page {
-            size: A4;
-            margin: 0;
+            size: A4 portrait;
+            margin: 15mm 10mm;
           }
           body {
             margin: 0;
             padding: 0;
+            background: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          * {
+            box-sizing: border-box;
           }
           .print\\:hidden {
             display: none !important;
@@ -920,15 +1669,28 @@ const InquiryReceiptPDF = ({ inquiryData, onClose }) => {
           .print\\:shadow-none {
             box-shadow: none !important;
           }
-          .print\\:p-12 {
-            padding: 3rem !important;
+          .print\\:p-\\[15mm\\] {
+            padding: 0 !important;
+          }
+          .print\\:max-w-full {
+            max-width: 100% !important;
+          }
+          .bg-gray-100 {
+            background: white !important;
+          }
+          .shadow-lg {
+            box-shadow: none !important;
+          }
+          /* Ensure colors print correctly */
+          .bg-gray-50, .bg-blue-600, .text-blue-600 {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
         }
       `}</style>
     </div>
   );
 };
-
 
 
 

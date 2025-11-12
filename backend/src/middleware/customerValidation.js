@@ -62,7 +62,6 @@ const updateCustomerValidation = (req, res, next) => {
     customer_contact: joi.string()
       .trim()
       .pattern(/^[0-9]{10}$/)
-      .optional()
       .messages({
         "string.pattern.base": "Customer contact must be a valid 10-digit number",
         "string.empty": "Customer contact cannot be empty"
@@ -70,7 +69,6 @@ const updateCustomerValidation = (req, res, next) => {
 
     customer_email: joi.string()
       .trim()
-      .email()
       .optional()
       .messages({
         "string.email": "Customer email must be a valid email address"
