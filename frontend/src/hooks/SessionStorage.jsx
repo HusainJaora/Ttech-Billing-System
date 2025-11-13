@@ -1,5 +1,5 @@
 // hooks/useSessionStorage.js
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback,useRef } from 'react';
 
 
 export const useSessionStorage = (key, initialValue) => {
@@ -46,53 +46,150 @@ export const useSessionStorage = (key, initialValue) => {
  * @param {boolean} restoreOnMount - Whether to restore scroll position on component mount
  * @returns {[function, function]} - [saveScroll, restoreScroll]
  */
-export const useScrollPosition = (key, restoreOnMount = true) => {
+
+// export const useScrollPosition = (key, options = {}) => {
+//   const {
+//     restoreOnMount = true,
+//     waitForContent = false,
+//     contentReady = true, // Pass this from parent when data is loaded
+//     debounceDelay = 150,
+//     restoreDelay = 300
+//   } = options;
+  
+//   const [scrollKey] = useState(`scroll_${key}`);
+//   const scrollTimerRef = useRef(null);
+
+//   // Continuous scroll saving with debounce
+//   const saveScroll = useCallback(() => {
+//     const currentScroll = window.scrollY;
+//     if (currentScroll > 0) {
+//       sessionStorage.setItem(scrollKey, currentScroll.toString());
+//     }
+//   }, [scrollKey]);
+
+//   // Better restore with RAF pattern
+//   const restoreScroll = useCallback(() => {
+//     const savedScroll = sessionStorage.getItem(scrollKey);
+//     if (savedScroll && parseInt(savedScroll) > 0) {
+//       const scrollY = parseInt(savedScroll);
+      
+//       requestAnimationFrame(() => {
+//         setTimeout(() => {
+//           window.scrollTo({
+//             top: scrollY,
+//             left: 0,
+//             behavior: 'instant'
+//           });
+//         }, restoreDelay);
+//       });
+//     }
+//   }, [scrollKey, restoreDelay]);
+
+//   // Manual clear function
+//   const clearScroll = useCallback(() => {
+//     sessionStorage.removeItem(scrollKey);
+//   }, [scrollKey]);
+
+//   // Track scroll continuously
+//   useEffect(() => {
+//     const handleScroll = () => {
+//       clearTimeout(scrollTimerRef.current);
+//       scrollTimerRef.current = setTimeout(saveScroll, debounceDelay);
+//     };
+
+//     window.addEventListener('scroll', handleScroll, { passive: true });
+//     window.addEventListener('beforeunload', saveScroll);
+
+//     return () => {
+//       window.removeEventListener('scroll', handleScroll);
+//       window.removeEventListener('beforeunload', saveScroll);
+//       saveScroll(); // Save on unmount
+//       clearTimeout(scrollTimerRef.current);
+//     };
+//   }, [saveScroll, debounceDelay]);
+
+//   // Restore scroll when content is ready
+//   useEffect(() => {
+//     if (restoreOnMount && (!waitForContent || contentReady)) {
+//       restoreScroll();
+//     }
+//   }, [restoreOnMount, waitForContent, contentReady, restoreScroll]);
+
+//   return { saveScroll, restoreScroll, clearScroll };
+// };
+
+export const useScrollPosition = (key, options = {}) => {
+  const {
+    restoreOnMount = true,
+    waitForContent = false,
+    contentReady = true,
+    debounceDelay = 150,
+    restoreDelay = 300
+  } = options;
+  
   const [scrollKey] = useState(`scroll_${key}`);
+  const scrollTimerRef = useRef(null);
 
-  // Save current scroll position
+  // Continuous scroll saving with debounce
   const saveScroll = useCallback(() => {
-    try {
-      sessionStorage.setItem(scrollKey, window.scrollY.toString());
-    } catch (error) {
-      console.warn(`Error saving scroll position for "${scrollKey}":`, error);
+    const currentScroll = window.scrollY;
+    if (currentScroll > 0) {
+      sessionStorage.setItem(scrollKey, currentScroll.toString());
+    } else {
+      // Clear saved scroll if user scrolls to top
+      sessionStorage.removeItem(scrollKey);
     }
   }, [scrollKey]);
 
-  // Restore scroll position
-  const restoreScroll = useCallback((delay = 100) => {
-    try {
-      const savedScroll = sessionStorage.getItem(scrollKey);
-      if (savedScroll) {
-        const scrollY = parseInt(savedScroll, 10);
+  // Better restore with RAF pattern
+  const restoreScroll = useCallback(() => {
+    const savedScroll = sessionStorage.getItem(scrollKey);
+    if (savedScroll && parseInt(savedScroll) > 0) {
+      const scrollY = parseInt(savedScroll);
+      
+      requestAnimationFrame(() => {
         setTimeout(() => {
-          window.scrollTo(0, scrollY);
-          sessionStorage.removeItem(scrollKey);
-        }, delay);
-      }
-    } catch (error) {
-      console.warn(`Error restoring scroll position for "${scrollKey}":`, error);
+          window.scrollTo({
+            top: scrollY,
+            left: 0,
+            behavior: 'instant'
+          });
+        }, restoreDelay);
+      });
     }
+  }, [scrollKey, restoreDelay]);
+
+  // Manual clear function
+  const clearScroll = useCallback(() => {
+    sessionStorage.removeItem(scrollKey);
   }, [scrollKey]);
 
-  // Save scroll position before page unload
+  // Track scroll continuously
   useEffect(() => {
-    const handleBeforeUnload = () => saveScroll();
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      saveScroll();
+    const handleScroll = () => {
+      clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = setTimeout(saveScroll, debounceDelay);
     };
-  }, [saveScroll]);
 
-  // Restore scroll position on mount if enabled
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('beforeunload', saveScroll);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('beforeunload', saveScroll);
+      saveScroll(); // Save on unmount
+      clearTimeout(scrollTimerRef.current);
+    };
+  }, [saveScroll, debounceDelay]);
+
+  // Restore scroll when content is ready
   useEffect(() => {
-    if (restoreOnMount) {
+    if (restoreOnMount && (!waitForContent || contentReady)) {
       restoreScroll();
     }
-  }, [restoreOnMount, restoreScroll]);
+  }, [restoreOnMount, waitForContent, contentReady, restoreScroll]);
 
-  return [saveScroll, restoreScroll];
+  return { saveScroll, restoreScroll, clearScroll };
 };
 
 /**

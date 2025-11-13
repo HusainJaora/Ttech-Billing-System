@@ -1,18 +1,33 @@
 import { useState, useEffect} from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../../api/axios';
 import ENDPOINTS from '../../api/endpoint';
 import { Wrench, AlertCircle, CheckCircle, Phone, User, RefreshCw, Sparkles, ArrowLeft, Edit2, Save } from 'lucide-react';
 import { SearchActionBar } from '../../components/SearchActionBar';
 import { ExportButton } from '../../components/ExportButton';
 import { Pagination } from '../../components/Pagination';
-import {MasterActions} from '../../components/Buttons/MasterActionButton';
+import { MasterActions } from '../../components/Buttons/MasterActionButton';
+import { 
+  usePersistedForm,
+  saveToSession,
+  loadFromSession,
+  useScrollPosition
+} from '../../hooks/SessionStorage';
 
 // Add Technician Component
 export const Technician = () => {
-  const [formData, setFormData] = useState({
+  // Use persisted form with session storage
+  const {
+    formData,
+    handleChange: handleFormChange,
+    resetForm,
+    clearForm
+  } = usePersistedForm('add_technician', {
     technician_name: '',
     technician_phone: ''
+  }, {
+    clearOnSubmit: true,
+    restoreOnMount: true
   });
 
   const [errors, setErrors] = useState({});
@@ -36,12 +51,9 @@ export const Technician = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
+    handleFormChange(e);
+    
+    const { name } = e.target;
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -72,11 +84,9 @@ export const Technician = () => {
       });
       showNotification('success', response.data.message || 'Technician added successfully');
 
-      setFormData({
-        technician_name: '',
-        technician_phone: ''
-      });
-
+      // Clear form data from session storage
+      clearForm();
+      
     } catch (error) {
       console.error('Error creating technician:', error);
       const errorMessage = error.response?.data?.error || error.response?.data?.message ||
@@ -87,176 +97,198 @@ export const Technician = () => {
     }
   };
 
-
+  const handleClear = () => {
+    resetForm();
+    setErrors({});
+  };
 
   return (
-  
-      <>
-        <header className="bg-white shadow-lg border-b border-gray-100">
-          <div className="px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4 ml-12 lg:ml-0">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
-                  <Wrench className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent">
-                    Add Technician
-                  </h1>
-                  <p className="text-sm text-gray-600 flex items-center mt-1">
-                    <Sparkles className="h-3 w-3 mr-1 text-indigo-500" />
-                    Create a new technician record
-                  </p>
-                </div>
+    <>
+      <header className="bg-white shadow-lg border-b border-gray-100">
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+                <Wrench className="h-6 w-6 text-white" />
               </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {notification.show && (
-            <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg transform transition-all animate-in slide-in-from-top ${
-              notification.type === 'success'
-                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
-                : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300'
-            }`}>
-              {notification.type === 'success' ? (
-                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${
-                  notification.type === 'success' ? 'text-green-800' : 'text-red-800'
-                }`}>
-                  {notification.message}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
-              <h2 className="text-xl font-bold flex items-center">
-                <User className="h-5 w-5 mr-2" />
-                Technician Information
-              </h2>
-              <p className="text-indigo-100 mt-1 text-sm">Fill in the details below to add a new technician</p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              <div className="group">
-                <label htmlFor="technician_name" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                  <User className="h-4 w-4 text-indigo-500" />
-                  <span>Technician Name <span className="text-red-500">*</span></span>
-                </label>
-                <input
-                  type="text"
-                  id="technician_name"
-                  name="technician_name"
-                  value={formData.technician_name}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
-                    errors.technician_name ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
-                  }`}
-                  placeholder="Enter technician name"
-                />
-                {errors.technician_name && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>{errors.technician_name}</span>
-                  </p>
-                )}
-              </div>
-
-              <div className="group">
-                <label htmlFor="technician_phone" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                  <Phone className="h-4 w-4 text-indigo-500" />
-                  <span>Phone Number <span className="text-red-500">*</span></span>
-                </label>
-                <input
-                  type="tel"
-                  id="technician_phone"
-                  name="technician_phone"
-                  value={formData.technician_phone}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
-                    errors.technician_phone ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
-                  }`}
-                  placeholder="Enter 10-digit phone number"
-                  maxLength="10"
-                />
-                {errors.technician_phone && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>{errors.technician_phone}</span>
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setFormData({
-                    technician_name: '',
-                    technician_phone: ''
-                  })}
-                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
-                  disabled={loading}
-                >
-                  Clear
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg transform hover:scale-105"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Adding Technician...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Wrench className="h-4 w-4" />
-                      <span>Add Technician</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-sm font-bold text-blue-900">Information</h3>
-                <p className="text-sm text-blue-800 mt-1">
-                  All fields marked with <span className="text-red-500 font-semibold">*</span> are required.
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent">
+                  Add Technician
+                </h1>
+                <p className="text-sm text-gray-600 flex items-center mt-1">
+                  <Sparkles className="h-3 w-3 mr-1 text-indigo-500" />
+                  Create a new technician record
                 </p>
               </div>
             </div>
           </div>
-        </main>
-      </>
-    
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {notification.show && (
+          <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg transform transition-all animate-in slide-in-from-top ${
+            notification.type === 'success'
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+              : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300'
+          }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${
+                notification.type === 'success' ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {notification.message}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+            <h2 className="text-xl font-bold flex items-center">
+              <User className="h-5 w-5 mr-2" />
+              Technician Information
+            </h2>
+            <p className="text-indigo-100 mt-1 text-sm">Fill in the details below to add a new technician</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <div className="group">
+              <label htmlFor="technician_name" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <User className="h-4 w-4 text-indigo-500" />
+                <span>Technician Name <span className="text-red-500">*</span></span>
+              </label>
+              <input
+                type="text"
+                id="technician_name"
+                name="technician_name"
+                value={formData.technician_name}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                  errors.technician_name ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
+                }`}
+                placeholder="Enter technician name"
+              />
+              {errors.technician_name && (
+                <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.technician_name}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="group">
+              <label htmlFor="technician_phone" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <Phone className="h-4 w-4 text-indigo-500" />
+                <span>Phone Number <span className="text-red-500">*</span></span>
+              </label>
+              <input
+                type="tel"
+                id="technician_phone"
+                name="technician_phone"
+                value={formData.technician_phone}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                  errors.technician_phone ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
+                }`}
+                placeholder="Enter 10-digit phone number"
+                maxLength="10"
+              />
+              {errors.technician_phone && (
+                <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.technician_phone}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
+              <button
+                type="button"
+                onClick={handleClear}
+                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
+                disabled={loading}
+              >
+                Clear
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg transform hover:scale-105"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Adding Technician...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wrench className="h-4 w-4" />
+                    <span>Add Technician</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-bold text-blue-900">Information</h3>
+              <p className="text-sm text-blue-800 mt-1">
+                All fields marked with <span className="text-red-500 font-semibold">*</span> are required.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </>
   );
 };  
 
-// Technician List
+// Technician List with URL-based state persistence
+
 export const TechnicianList = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // State management
   const [technicians, setTechnicians] = useState([]);
   const [filteredTechnicians, setFilteredTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page')) || 1);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   
-  const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
+
+  // ============================================
+  // SCROLL POSITION MANAGEMENT WITH HOOK
+  // ============================================
+  
+  const { saveScroll, restoreScroll, clearScroll } = useScrollPosition(
+    'technicianList',
+    false // Don't auto-restore on mount
+  );
+
+  // Restore scroll position after data loads
+  useEffect(() => {
+    if (!loading && technicians.length > 0) {
+      restoreScroll(300);
+    }
+  }, [loading, technicians.length, restoreScroll]);
+
+  // ============================================
+  // DATA FETCHING
+  // ============================================
 
   useEffect(() => {
     fetchTechnicians();
@@ -264,7 +296,17 @@ export const TechnicianList = () => {
 
   useEffect(() => {
     filterTechnicians();
+    if (!searchParams.get('page')) {
+      setCurrentPage(1);
+    }
   }, [searchTerm, technicians]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set('search', searchTerm);
+    if (currentPage > 1) params.set('page', currentPage.toString());
+    setSearchParams(params, { replace: true });
+  }, [searchTerm, currentPage, setSearchParams]);
 
   const fetchTechnicians = async (isManualRefresh = false) => {
     try {
@@ -276,12 +318,10 @@ export const TechnicianList = () => {
       
       const response = await axiosInstance.get(ENDPOINTS.TECHNICIAN.TECHNICIAN_LIST);
       
-      // Check if response has message (no technicians found)
       if (response.data.message) {
         setTechnicians([]);
         setError(null);
       } else {
-        // API returns technicians array directly, already sorted by technician_id DESC
         setTechnicians(response.data.technicians || []);
         setError(null);
       }
@@ -293,7 +333,6 @@ export const TechnicianList = () => {
           err.response?.status === 400) {
         setTechnicians([]);
         setError(null);
-        console.log('No technicians available');
       } else {
         setError(errorMessage || 'Failed to fetch technicians');
         console.error('Technician fetch error:', err);
@@ -307,7 +346,6 @@ export const TechnicianList = () => {
   const filterTechnicians = () => {
     if (!searchTerm.trim()) {
       setFilteredTechnicians(technicians);
-      setCurrentPage(1);
       return;
     }
 
@@ -317,8 +355,11 @@ export const TechnicianList = () => {
       return name.includes(term);
     });
     setFilteredTechnicians(filtered);
-    setCurrentPage(1);
   };
+
+  // ============================================
+  // HANDLERS
+  // ============================================
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
@@ -337,21 +378,16 @@ export const TechnicianList = () => {
         response.data.message || 'Technician deleted successfully'
       );
       
-      // Refresh the technician list
       fetchTechnicians();
     } catch (error) {
       console.error('Error deleting technician:', error);
-      throw error; // Let MasterActions handle the error display
+      throw error;
     }
   };
 
-  const totalPages = Math.ceil(filteredTechnicians.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentTechnicians = filteredTechnicians.slice(startIndex, endIndex);
-
   const handlePageChange = (page) => {
     setCurrentPage(page);
+    clearScroll(); // Clear saved scroll position
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -360,10 +396,12 @@ export const TechnicianList = () => {
   };
 
   const handleViewTechnician = (technicianId) => {
+    saveScroll(); // Save current scroll before navigation
     navigate(`/technicians/detail/${technicianId}`);
   };
 
   const handleEditTechnician = (technicianId) => {
+    saveScroll(); // Save current scroll before navigation
     navigate(`/master/edit-technician/${technicianId}`);
   };
 
@@ -380,6 +418,19 @@ export const TechnicianList = () => {
     return `${day} ${month} ${year}`;
   };
 
+  // ============================================
+  // PAGINATION
+  // ============================================
+
+  const totalPages = Math.ceil(filteredTechnicians.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentTechnicians = filteredTechnicians.slice(startIndex, endIndex);
+
+  // ============================================
+  // LOADING STATE
+  // ============================================
+
   if (loading && technicians.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -390,6 +441,10 @@ export const TechnicianList = () => {
       </div>
     );
   }
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <>
@@ -418,7 +473,6 @@ export const TechnicianList = () => {
                 <RefreshCw className={`h-5 w-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
 
-              {/* Integrated ExportButton Component */}
               {ENDPOINTS.TECHNICIAN?.EXPORT_TECHNICIAN && (
                 <ExportButton
                   endpoint={ENDPOINTS.TECHNICIAN.EXPORT_TECHNICIAN}
@@ -475,7 +529,6 @@ export const TechnicianList = () => {
           </div>
         )}
 
-        {/* Notification Display */}
         {notification.show && (
           <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg animate-in slide-in-from-top ${
             notification.type === 'success'
@@ -637,19 +690,65 @@ export const TechnicianList = () => {
   );
 };
 
- // Edit Technician Component
+
 export const EditTechnician = () => {
   const navigate = useNavigate();
   const { technicianId } = useParams();
+  
   const [formData, setFormData] = useState({
     technician_name: '',
     technician_phone: ''
   });
+
   const [originalData, setOriginalData] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+
+  // Save form data to session storage on change
+  useEffect(() => {
+    // Only save if we have originalData to compare with
+    if (!originalData) return;
+
+    // Check if different from original
+    const isDifferent = JSON.stringify(formData) !== JSON.stringify(originalData);
+
+    if (isDifferent) {
+      // Save to session storage if different from original (including empty state)
+      saveToSession(`editTechnicianForm_${technicianId}`, formData);
+    } else {
+      // Clear session storage if back to original state
+      sessionStorage.removeItem(`editTechnicianForm_${technicianId}`);
+    }
+  }, [formData, technicianId, originalData]);
+
+  // Save scroll position
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveToSession(`editTechnicianScroll_${technicianId}`, window.scrollY);
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      saveToSession(`editTechnicianScroll_${technicianId}`, window.scrollY);
+    };
+  }, [technicianId]);
+
+  // Restore scroll position
+  useEffect(() => {
+    if (!loading) {
+      const scrollY = loadFromSession(`editTechnicianScroll_${technicianId}`, 0);
+      if (scrollY > 0) {
+        setTimeout(() => {
+          window.scrollTo(0, scrollY);
+          sessionStorage.removeItem(`editTechnicianScroll_${technicianId}`);
+        }, 100);
+      }
+    }
+  }, [loading, technicianId]);
 
   useEffect(() => {
     fetchTechnicianData();
@@ -657,9 +756,8 @@ export const EditTechnician = () => {
 
   const fetchTechnicianData = async () => {
     try {
-       console.log('Fetching technician data for ID:', technicianId);
-       console.log('Endpoint:', `${ENDPOINTS.TECHNICIAN.TECHNICIAN_DETAIL}/${technicianId}`);
       setLoading(true);
+      
       const response = await axiosInstance.get(
         `${ENDPOINTS.TECHNICIAN.TECHNICIAN_DETAIL}/${technicianId}`
       );
@@ -669,8 +767,19 @@ export const EditTechnician = () => {
         technician_phone: response.data.technician.technician_phone || ''
       };
       
-      setFormData(technicianData);
+      // Set original data first
       setOriginalData(technicianData);
+      
+      // Check if we have saved form data from a previous session
+      const savedFormData = loadFromSession(`editTechnicianForm_${technicianId}`, null);
+      
+      // If we have saved data (including empty state), restore it
+      // Otherwise use the original data from server
+      if (savedFormData !== null) {
+        setFormData(savedFormData);
+      } else {
+        setFormData(technicianData);
+      }
     } catch (error) {
       console.error('Error fetching technician:', error);
       const errorMessage = error.response?.data?.message || 
@@ -737,6 +846,10 @@ export const EditTechnician = () => {
       
       showNotification('success', response.data.message || 'Technician updated successfully');
       
+      // Clear saved form data on successful update
+      sessionStorage.removeItem(`editTechnicianForm_${technicianId}`);
+      sessionStorage.removeItem(`editTechnicianScroll_${technicianId}`);
+      
       setTimeout(() => {
         navigate(`/technicians/detail/${technicianId}`);
       }, 1500);
@@ -753,7 +866,18 @@ export const EditTechnician = () => {
   };
 
   const handleCancel = () => {
+    // Clear saved form data when canceling
+    sessionStorage.removeItem(`editTechnicianForm_${technicianId}`);
+    sessionStorage.removeItem(`editTechnicianScroll_${technicianId}`);
     navigate(`/master/technician/list`);
+  };
+
+  const handleReset = () => {
+    if (originalData) {
+      setFormData(originalData);
+      sessionStorage.removeItem(`editTechnicianForm_${technicianId}`);
+      setErrors({});
+    }
   };
 
   const hasChanges = () => {
@@ -773,175 +897,172 @@ export const EditTechnician = () => {
   }
 
   return (
-   
-     
-      
-      < >
-        {/* Header with gradient */}
-        <header className="bg-white shadow-lg border-b border-gray-100">
-          <div className="px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4 ml-12 lg:ml-0">
-                <button
-                  onClick={handleCancel}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition"
-                >
-                  <ArrowLeft className="h-5 w-5 text-gray-600" />
-                </button>
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
-                  <Edit2 className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent">
-                    Edit Technician
-                  </h1>
-                  <p className="text-sm text-gray-600 flex items-center mt-1">
-                    <Sparkles className="h-3 w-3 mr-1 text-indigo-500" />
-                    Update technician information
-                  </p>
-                </div>
+    <>
+      <header className="bg-white shadow-lg border-b border-gray-100">
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+              <button
+                onClick={handleCancel}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+                <Edit2 className="h-6 w-6 text-white" />
               </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Notification with animation */}
-          {notification.show && (
-            <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg transform transition-all animate-in slide-in-from-top ${
-              notification.type === 'success'
-                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
-                : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300'
-            }`}>
-              {notification.type === 'success' ? (
-                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${
-                  notification.type === 'success' ? 'text-green-800' : 'text-red-800'
-                }`}>
-                  {notification.message}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Form Card with enhanced styling */}
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
-              <h2 className="text-xl font-bold flex items-center">
-                <User className="h-5 w-5 mr-2" />
-                Technician Information
-              </h2>
-              <p className="text-indigo-100 mt-1 text-sm">Update the details below to modify technician information</p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              {/* Technician Name */}
-              <div className="group">
-                <label htmlFor="technician_name" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                  <User className="h-4 w-4 text-indigo-500" />
-                  <span>Technician Name <span className="text-red-500">*</span></span>
-                </label>
-                <input
-                  type="text"
-                  id="technician_name"
-                  name="technician_name"
-                  value={formData.technician_name}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
-                    errors.technician_name ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
-                  }`}
-                  placeholder="Enter technician name"
-                />
-                {errors.technician_name && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>{errors.technician_name}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Technician Phone */}
-              <div className="group">
-                <label htmlFor="technician_phone" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                  <Phone className="h-4 w-4 text-indigo-500" />
-                  <span>Phone Number <span className="text-red-500">*</span></span>
-                </label>
-                <input
-                  type="tel"
-                  id="technician_phone"
-                  name="technician_phone"
-                  value={formData.technician_phone}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
-                    errors.technician_phone ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
-                  }`}
-                  placeholder="Enter 10-digit phone number"
-                  maxLength="10"
-                />
-                {errors.technician_phone && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>{errors.technician_phone}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Form Actions */}
-              <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
-                  disabled={saving}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving || !hasChanges()}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg transform hover:scale-105"
-                >
-                  {saving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Saving Changes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Info Card with enhanced styling */}
-          <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-sm font-bold text-blue-900">Information</h3>
-                <p className="text-sm text-blue-800 mt-1">
-                  All fields marked with <span className="text-red-500 font-semibold">*</span> are required.
-                  The Save button will be disabled if no changes are made.
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent">
+                  Edit Technician
+                </h1>
+                <p className="text-sm text-gray-600 flex items-center mt-1">
+                  <Sparkles className="h-3 w-3 mr-1 text-indigo-500" />
+                  Update technician information
                 </p>
               </div>
             </div>
           </div>
-        </main>
-      </>
-    
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {notification.show && (
+          <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg transform transition-all animate-in slide-in-from-top ${
+            notification.type === 'success'
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+              : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300'
+          }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${
+                notification.type === 'success' ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {notification.message}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+            <h2 className="text-xl font-bold flex items-center">
+              <User className="h-5 w-5 mr-2" />
+              Technician Information
+            </h2>
+            <p className="text-indigo-100 mt-1 text-sm">Update the details below to modify technician information</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <div className="group">
+              <label htmlFor="technician_name" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <User className="h-4 w-4 text-indigo-500" />
+                <span>Technician Name <span className="text-red-500">*</span></span>
+              </label>
+              <input
+                type="text"
+                id="technician_name"
+                name="technician_name"
+                value={formData.technician_name}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                  errors.technician_name ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
+                }`}
+                placeholder="Enter technician name"
+              />
+              {errors.technician_name && (
+                <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.technician_name}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="group">
+              <label htmlFor="technician_phone" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                <Phone className="h-4 w-4 text-indigo-500" />
+                <span>Phone Number <span className="text-red-500">*</span></span>
+              </label>
+              <input
+                type="tel"
+                id="technician_phone"
+                name="technician_phone"
+                value={formData.technician_phone}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                  errors.technician_phone ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
+                }`}
+                placeholder="Enter 10-digit phone number"
+                maxLength="10"
+              />
+              {errors.technician_phone && (
+                <p className="mt-2 text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-top">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.technician_phone}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-6 py-3 border-2 border-amber-300 text-amber-700 rounded-xl hover:bg-amber-50 hover:border-amber-400 transition-all font-medium shadow-sm transform hover:scale-105"
+                disabled={saving || !hasChanges()}
+                title="Reset to original values"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving || !hasChanges()}
+                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg transform hover:scale-105"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Saving Changes...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    <span>Save Changes</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-bold text-blue-900">Information</h3>
+              <p className="text-sm text-blue-800 mt-1">
+                All fields marked with <span className="text-red-500 font-semibold">*</span> are required.
+                Your changes are automatically saved locally. If the page reloads, your unsaved edits will be restored.
+                Use the <span className="font-semibold">Reset</span> button to discard changes and restore original values.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </>
   );
 };
 
-// Technician Detail Component
 export const TechnicianDetail = () => {
   const navigate = useNavigate();
   const { technicianId } = useParams(); 
@@ -984,6 +1105,10 @@ export const TechnicianDetail = () => {
     navigate(`/master/edit-technician/${technicianId}`);
   };
 
+  const handleBackToList = () => {
+    navigate('/master/technician/list');
+  };
+
   if (loading && !technicianData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -1003,7 +1128,7 @@ export const TechnicianDetail = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Technician</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <button
-            onClick={() => navigate('/master/technician/list')}
+            onClick={handleBackToList}
             className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
           >
             Back to Technician List
@@ -1020,7 +1145,7 @@ export const TechnicianDetail = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 ml-12 lg:ml-0">
               <button
-                onClick={() => navigate('/master/technician/list')}
+                onClick={handleBackToList}
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600" />
@@ -1055,7 +1180,6 @@ export const TechnicianDetail = () => {
         )}
 
         <div className="space-y-6">
-          {/* Contact Information */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1076,7 +1200,6 @@ export const TechnicianDetail = () => {
             </div>
           </div>
 
-          {/* Metadata */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Record Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

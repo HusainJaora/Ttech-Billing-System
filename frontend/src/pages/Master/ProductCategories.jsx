@@ -1,18 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate,useParams  } from 'react-router-dom';
-import { RefreshCw,Sparkles, CheckCircle, AlertCircle, Tag,Network,Save,Edit2,ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../../api/axios';
 import ENDPOINTS from '../../api/endpoint';
+import { Network, AlertCircle, CheckCircle, Tag, RefreshCw, Sparkles, ArrowLeft, Edit2, Save } from 'lucide-react';
 import { SearchActionBar } from '../../components/SearchActionBar';
 import { ExportButton } from '../../components/ExportButton';
 import { Pagination } from '../../components/Pagination';
-import {MasterActions} from '../../components/Buttons/MasterActionButton';
+import { MasterActions } from '../../components/Buttons/MasterActionButton';
+import { 
+  usePersistedForm,
+  saveToSession,
+  loadFromSession,
+  useScrollPosition
+} from '../../hooks/SessionStorage';
 
-
-// Add Product category
+// Add Product Category Component
 export const ProductCategory = () => {
-  const [formData, setFormData] = useState({
+  // Use persisted form with session storage
+  const {
+    formData,
+    handleChange: handleFormChange,
+    resetForm,
+    clearForm
+  } = usePersistedForm('add_product_category', {
     product_category_name: ''
+  }, {
+    clearOnSubmit: true,
+    restoreOnMount: true
   });
 
   const [errors, setErrors] = useState({});
@@ -30,12 +44,9 @@ export const ProductCategory = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
+    handleFormChange(e);
+    
+    const { name } = e.target;
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -65,10 +76,9 @@ export const ProductCategory = () => {
       });
       showNotification('success', response.data.message || 'Product category added successfully');
 
-      setFormData({
-        product_category_name: ''
-      });
-
+      // Clear form data from session storage
+      clearForm();
+      
     } catch (error) {
       console.error('Error creating product category:', error);
       const errorMessage = error.response?.data?.error || error.response?.data?.message ||
@@ -77,6 +87,11 @@ export const ProductCategory = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClear = () => {
+    resetForm();
+    setErrors({});
   };
 
   return (
@@ -161,9 +176,7 @@ export const ProductCategory = () => {
             <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
               <button
                 type="button"
-                onClick={() => setFormData({
-                  product_category_name: ''
-                })}
+                onClick={handleClear}
                 className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
                 disabled={loading}
               >
@@ -206,19 +219,42 @@ export const ProductCategory = () => {
   );
 };
 
-//  Product Category List
+// Product Category List with URL-based state persistence
 export const ProductCategoryList = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // State management
   const [categories, setCategories] = useState([]);
   const [filteredCategories, setFilteredCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page')) || 1);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   
-  const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
+
+  // ============================================
+  // SCROLL POSITION MANAGEMENT WITH HOOK
+  // ============================================
+  
+  const { saveScroll, restoreScroll, clearScroll } = useScrollPosition(
+    'productCategoryList',
+    false // Don't auto-restore on mount
+  );
+
+  // Restore scroll position after data loads
+  useEffect(() => {
+    if (!loading && categories.length > 0) {
+      restoreScroll(300);
+    }
+  }, [loading, categories.length, restoreScroll]);
+
+  // ============================================
+  // DATA FETCHING
+  // ============================================
 
   useEffect(() => {
     fetchCategories();
@@ -226,7 +262,17 @@ export const ProductCategoryList = () => {
 
   useEffect(() => {
     filterCategories();
+    if (!searchParams.get('page')) {
+      setCurrentPage(1);
+    }
   }, [searchTerm, categories]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set('search', searchTerm);
+    if (currentPage > 1) params.set('page', currentPage.toString());
+    setSearchParams(params, { replace: true });
+  }, [searchTerm, currentPage, setSearchParams]);
 
   const fetchCategories = async (isManualRefresh = false) => {
     try {
@@ -238,12 +284,10 @@ export const ProductCategoryList = () => {
       
       const response = await axiosInstance.get(ENDPOINTS.PRODUCT_CATEGORY.PRODUCT_CATEGORY_LIST);
       
-      // Check if response has message (no categories found)
       if (response.data.message) {
         setCategories([]);
         setError(null);
       } else {
-        // API returns ProductCategory array directly, already sorted by product_category_id DESC
         setCategories(response.data.ProductCategory || []);
         setError(null);
       }
@@ -268,7 +312,6 @@ export const ProductCategoryList = () => {
   const filterCategories = () => {
     if (!searchTerm.trim()) {
       setFilteredCategories(categories);
-      setCurrentPage(1);
       return;
     }
 
@@ -278,8 +321,11 @@ export const ProductCategoryList = () => {
       return name.includes(term);
     });
     setFilteredCategories(filtered);
-    setCurrentPage(1);
   };
+
+  // ============================================
+  // HANDLERS
+  // ============================================
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
@@ -298,21 +344,16 @@ export const ProductCategoryList = () => {
         response.data.message || 'Product category deleted successfully'
       );
       
-      // Refresh the category list
       fetchCategories();
     } catch (error) {
       console.error('Error deleting product category:', error);
-      throw error; // Let MasterActions handle the error display
+      throw error;
     }
   };
 
-  const totalPages = Math.ceil(filteredCategories.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentCategories = filteredCategories.slice(startIndex, endIndex);
-
   const handlePageChange = (page) => {
     setCurrentPage(page);
+    clearScroll(); // Clear saved scroll position
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -320,7 +361,13 @@ export const ProductCategoryList = () => {
     fetchCategories(true);
   };
 
+  const handleViewCategory = (categoryId) => {
+    saveScroll(); // Save current scroll before navigation
+    navigate(`/product-categories/detail/${categoryId}`);
+  };
+
   const handleEditCategory = (categoryId) => {
+    saveScroll(); // Save current scroll before navigation
     navigate(`/master/edit-product-category/${categoryId}`);
   };
 
@@ -337,6 +384,19 @@ export const ProductCategoryList = () => {
     return `${day} ${month} ${year}`;
   };
 
+  // ============================================
+  // PAGINATION
+  // ============================================
+
+  const totalPages = Math.ceil(filteredCategories.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentCategories = filteredCategories.slice(startIndex, endIndex);
+
+  // ============================================
+  // LOADING STATE
+  // ============================================
+
   if (loading && categories.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -347,6 +407,10 @@ export const ProductCategoryList = () => {
       </div>
     );
   }
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <>
@@ -375,7 +439,6 @@ export const ProductCategoryList = () => {
                 <RefreshCw className={`h-5 w-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
 
-              {/* Integrated ExportButton Component */}
               {ENDPOINTS.PRODUCT_CATEGORY?.EXPORT_PRODUCT_CATEGORY && (
                 <ExportButton
                   endpoint={ENDPOINTS.PRODUCT_CATEGORY.EXPORT_PRODUCT_CATEGORY}
@@ -432,7 +495,6 @@ export const ProductCategoryList = () => {
           </div>
         )}
 
-        {/* Notification Display */}
         {notification.show && (
           <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg animate-in slide-in-from-top ${
             notification.type === 'success'
@@ -539,13 +601,13 @@ export const ProductCategoryList = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-center">
                             <MasterActions
                               onEdit={() => handleEditCategory(category.product_category_id)}
+                              onView={() => handleViewCategory(category.product_category_id)}
                               onDelete={() => handleDeleteCategory(
                                 category.product_category_id, 
                                 category.product_category_name
                               )}
                               itemName={category.product_category_name}
                               size="md"
-                              hideView={true}
                             />
                           </td>
                         </tr>
@@ -594,18 +656,64 @@ export const ProductCategoryList = () => {
   );
 };
 
-// Edit Product category
+// Edit Product Category
 export const EditProductCategory = () => {
   const navigate = useNavigate();
   const { product_category_id } = useParams();
+  
   const [formData, setFormData] = useState({
     product_category_name: ''
   });
+
   const [originalData, setOriginalData] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+
+  // Save form data to session storage on change
+  useEffect(() => {
+    // Only save if we have originalData to compare with
+    if (!originalData) return;
+
+    // Check if different from original
+    const isDifferent = JSON.stringify(formData) !== JSON.stringify(originalData);
+
+    if (isDifferent) {
+      // Save to session storage if different from original (including empty state)
+      saveToSession(`editProductCategoryForm_${product_category_id}`, formData);
+    } else {
+      // Clear session storage if back to original state
+      sessionStorage.removeItem(`editProductCategoryForm_${product_category_id}`);
+    }
+  }, [formData, product_category_id, originalData]);
+
+  // Save scroll position
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveToSession(`editProductCategoryScroll_${product_category_id}`, window.scrollY);
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      saveToSession(`editProductCategoryScroll_${product_category_id}`, window.scrollY);
+    };
+  }, [product_category_id]);
+
+  // Restore scroll position
+  useEffect(() => {
+    if (!loading) {
+      const scrollY = loadFromSession(`editProductCategoryScroll_${product_category_id}`, 0);
+      if (scrollY > 0) {
+        setTimeout(() => {
+          window.scrollTo(0, scrollY);
+          sessionStorage.removeItem(`editProductCategoryScroll_${product_category_id}`);
+        }, 100);
+      }
+    }
+  }, [loading, product_category_id]);
 
   useEffect(() => {
     fetchProductCategoryData();
@@ -614,6 +722,7 @@ export const EditProductCategory = () => {
   const fetchProductCategoryData = async () => {
     try {
       setLoading(true);
+      
       const response = await axiosInstance.get(
         `${ENDPOINTS.PRODUCT_CATEGORY.PRODUCT_CATEGORY_DETAIL}/${product_category_id}`
       );
@@ -622,8 +731,19 @@ export const EditProductCategory = () => {
         product_category_name: response.data.productCategory.product_category_name || ''
       };
       
-      setFormData(categoryData);
+      // Set original data first
       setOriginalData(categoryData);
+      
+      // Check if we have saved form data from a previous session
+      const savedFormData = loadFromSession(`editProductCategoryForm_${product_category_id}`, null);
+      
+      // If we have saved data (including empty state), restore it
+      // Otherwise use the original data from server
+      if (savedFormData !== null) {
+        setFormData(savedFormData);
+      } else {
+        setFormData(categoryData);
+      }
     } catch (error) {
       console.error('Error fetching product category:', error);
       const errorMessage = error.response?.data?.message || 
@@ -684,8 +804,12 @@ export const EditProductCategory = () => {
       
       showNotification('success', response.data.message || 'Product category updated successfully');
       
+      // Clear saved form data on successful update
+      sessionStorage.removeItem(`editProductCategoryForm_${product_category_id}`);
+      sessionStorage.removeItem(`editProductCategoryScroll_${product_category_id}`);
+      
       setTimeout(() => {
-        navigate('/master/product-category/list');
+        navigate(`/product-categories/detail/${product_category_id}`);
       }, 1500);
 
     } catch (error) {
@@ -700,7 +824,18 @@ export const EditProductCategory = () => {
   };
 
   const handleCancel = () => {
+    // Clear saved form data when canceling
+    sessionStorage.removeItem(`editProductCategoryForm_${product_category_id}`);
+    sessionStorage.removeItem(`editProductCategoryScroll_${product_category_id}`);
     navigate('/master/product-categories/list');
+  };
+
+  const handleReset = () => {
+    if (originalData) {
+      setFormData(originalData);
+      sessionStorage.removeItem(`editProductCategoryForm_${product_category_id}`);
+      setErrors({});
+    }
   };
 
   const hasChanges = () => {
@@ -721,7 +856,6 @@ export const EditProductCategory = () => {
 
   return (
     <>
-      {/* Header with gradient */}
       <header className="bg-white shadow-lg border-b border-gray-100">
         <div className="px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
@@ -749,9 +883,7 @@ export const EditProductCategory = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Notification with animation */}
         {notification.show && (
           <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg transform transition-all animate-in slide-in-from-top ${
             notification.type === 'success'
@@ -773,7 +905,6 @@ export const EditProductCategory = () => {
           </div>
         )}
 
-        {/* Form Card with enhanced styling */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
           <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
             <h2 className="text-xl font-bold flex items-center">
@@ -784,7 +915,6 @@ export const EditProductCategory = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 space-y-6">
-            {/* Product Category Name */}
             <div className="group">
               <label htmlFor="product_category_name" className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                 <Network className="h-4 w-4 text-indigo-500" />
@@ -809,8 +939,16 @@ export const EditProductCategory = () => {
               )}
             </div>
 
-            {/* Form Actions */}
             <div className="flex items-center justify-end space-x-4 pt-6 border-t-2 border-gray-100">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-6 py-3 border-2 border-amber-300 text-amber-700 rounded-xl hover:bg-amber-50 hover:border-amber-400 transition-all font-medium shadow-sm transform hover:scale-105"
+                disabled={saving || !hasChanges()}
+                title="Reset to original values"
+              >
+                Reset
+              </button>
               <button
                 type="button"
                 onClick={handleCancel}
@@ -840,7 +978,6 @@ export const EditProductCategory = () => {
           </form>
         </div>
 
-        {/* Info Card with enhanced styling */}
         <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md">
           <div className="flex items-start space-x-3">
             <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -848,7 +985,8 @@ export const EditProductCategory = () => {
               <h3 className="text-sm font-bold text-blue-900">Information</h3>
               <p className="text-sm text-blue-800 mt-1">
                 All fields marked with <span className="text-red-500 font-semibold">*</span> are required.
-                The Save button will be disabled if no changes are made.
+                Your changes are automatically saved locally. If the page reloads, your unsaved edits will be restored.
+                Use the <span className="font-semibold">Reset</span> button to discard changes and restore original values.
               </p>
             </div>
           </div>
@@ -857,3 +995,160 @@ export const EditProductCategory = () => {
     </>
   );
 };
+
+// Product Category Detail Component
+export const ProductCategoryDetail = () => {
+  const navigate = useNavigate();
+  const { product_category_id } = useParams(); 
+  const [categoryData, setCategoryData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetchCategoryDetail();
+  }, [product_category_id]);
+
+  const fetchCategoryDetail = async (isManualRefresh = false) => {
+    try {
+      if (!isManualRefresh) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+      
+      const response = await axiosInstance.get(
+        `${ENDPOINTS.PRODUCT_CATEGORY.PRODUCT_CATEGORY_DETAIL}/${product_category_id}`
+      );
+      
+      setCategoryData(response.data.productCategory);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error || 
+                          'Failed to fetch product category details';
+      setError(errorMessage);
+      console.error('Product category detail fetch error:', err);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleEdit = () => {
+    navigate(`/master/edit-product-category/${product_category_id}`);
+  };
+
+  const handleBackToList = () => {
+    navigate('/master/product-category/list');
+  };
+
+  if (loading && !categoryData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading product category details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Product Category</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={handleBackToList}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          >
+            Back to Category List
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+              <button
+                onClick={handleBackToList}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
+              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <Network className="h-6 w-6 text-indigo-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{categoryData?.product_category_name}</h1>
+                <p className="text-sm text-gray-600">Product Category Details</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleEdit}
+                className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+              >
+                <Edit2 className="h-4 w-4" />
+                <span>Edit</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isRefreshing && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-2">
+            <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
+            <span className="text-sm text-blue-700">Refreshing category details...</span>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Category Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-start space-x-3">
+                <Network className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Category Name</p>
+                  <p className="text-base text-gray-900">{categoryData?.product_category_name}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Record Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Created Date</p>
+                <p className="text-base text-gray-900">
+                  {categoryData?.created_date ? new Date(categoryData.created_date).toLocaleDateString('en-IN', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  }) : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Created Time</p>
+                <p className="text-base text-gray-900">{categoryData?.created_time || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
