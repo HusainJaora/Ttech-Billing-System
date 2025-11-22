@@ -1,8 +1,15 @@
 // hooks/useSessionStorage.js
-import { useState, useEffect, useCallback,useRef } from 'react';
-
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export const useSessionStorage = (key, initialValue) => {
+  // Use ref to store initialValue to prevent stale closure
+  const initialValueRef = useRef(initialValue);
+  
+  // Update ref when initialValue changes
+  useEffect(() => {
+    initialValueRef.current = initialValue;
+  }, [initialValue]);
+  
   // State to store our value
   const [storedValue, setStoredValue] = useState(() => {
     try {
@@ -19,33 +26,28 @@ export const useSessionStorage = (key, initialValue) => {
   const setValue = useCallback((value) => {
     try {
       // Allow value to be a function so we have same API as useState
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      sessionStorage.setItem(key, JSON.stringify(valueToStore));
+      setStoredValue(prevValue => {
+        const valueToStore = value instanceof Function ? value(prevValue) : value;
+        sessionStorage.setItem(key, JSON.stringify(valueToStore));
+        return valueToStore;
+      });
     } catch (error) {
       console.warn(`Error saving to sessionStorage key "${key}":`, error);
     }
-  }, [key, storedValue]);
+  }, [key]);
 
   // Remove the value from sessionStorage
   const removeValue = useCallback(() => {
     try {
       sessionStorage.removeItem(key);
-      setStoredValue(initialValue);
+      setStoredValue(initialValueRef.current);
     } catch (error) {
       console.warn(`Error removing sessionStorage key "${key}":`, error);
     }
-  }, [key, initialValue]);
+  }, [key]);
 
   return [storedValue, setValue, removeValue];
 };
-
-/**
- * Custom hook for managing scroll position in sessionStorage
- * @param {string} key - The sessionStorage key for scroll position
- * @param {boolean} restoreOnMount - Whether to restore scroll position on component mount
- * @returns {[function, function]} - [saveScroll, restoreScroll]
- */
 
 export const useScrollPosition = (key, options = {}) => {
   const {
@@ -56,11 +58,17 @@ export const useScrollPosition = (key, options = {}) => {
     restoreDelay = 300
   } = options;
   
-  const [scrollKey] = useState(`scroll_${key}`);
+  const scrollKey = `scroll_${key}`;
   const scrollTimerRef = useRef(null);
+  const isRestoringRef = useRef(false);
+  const hasRestoredRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   // Continuous scroll saving with debounce
   const saveScroll = useCallback(() => {
+    // Don't save if we're in the middle of restoring or unmounted
+    if (isRestoringRef.current || !isMountedRef.current) return;
+    
     const currentScroll = window.scrollY;
     if (currentScroll > 0) {
       sessionStorage.setItem(scrollKey, currentScroll.toString());
@@ -72,17 +80,30 @@ export const useScrollPosition = (key, options = {}) => {
 
   // Better restore with RAF pattern
   const restoreScroll = useCallback(() => {
+    // Prevent multiple restores or restore on unmounted component
+    if (hasRestoredRef.current || !isMountedRef.current) return;
+    
     const savedScroll = sessionStorage.getItem(scrollKey);
     if (savedScroll && parseInt(savedScroll) > 0) {
       const scrollY = parseInt(savedScroll);
+      isRestoringRef.current = true;
+      hasRestoredRef.current = true;
       
       requestAnimationFrame(() => {
+        if (!isMountedRef.current) return; // Check if still mounted
+        
         setTimeout(() => {
+          if (!isMountedRef.current) return; // Check again before scrolling
+          
           window.scrollTo({
             top: scrollY,
             left: 0,
             behavior: 'instant'
           });
+          // Allow saving again after restore completes
+          setTimeout(() => {
+            isRestoringRef.current = false;
+          }, 100);
         }, restoreDelay);
       });
     }
@@ -91,10 +112,13 @@ export const useScrollPosition = (key, options = {}) => {
   // Manual clear function
   const clearScroll = useCallback(() => {
     sessionStorage.removeItem(scrollKey);
+    hasRestoredRef.current = false;
   }, [scrollKey]);
 
   // Track scroll continuously
   useEffect(() => {
+    isMountedRef.current = true;
+    
     const handleScroll = () => {
       clearTimeout(scrollTimerRef.current);
       scrollTimerRef.current = setTimeout(saveScroll, debounceDelay);
@@ -104,9 +128,12 @@ export const useScrollPosition = (key, options = {}) => {
     window.addEventListener('beforeunload', saveScroll);
 
     return () => {
+      isMountedRef.current = false;
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('beforeunload', saveScroll);
-      saveScroll(); // Save on unmount
+      if (!isRestoringRef.current) {
+        saveScroll();
+      }
       clearTimeout(scrollTimerRef.current);
     };
   }, [saveScroll, debounceDelay]);
@@ -141,9 +168,18 @@ export const usePersistedForm = (key, initialState, options = {}) => {
     initialState
   );
 
+  const hasRestoredRef = useRef(false);
+  const initialStateRef = useRef(initialState);
+  
+  // Update initialStateRef when initialState changes
+  useEffect(() => {
+    initialStateRef.current = initialState;
+  }, [initialState]);
+
   // Initialize form data on mount
   useEffect(() => {
-    if (restoreOnMount) {
+    if (restoreOnMount && !hasRestoredRef.current) {
+      hasRestoredRef.current = true;
       try {
         const saved = sessionStorage.getItem(`form_${key}`);
         if (saved) {
@@ -164,7 +200,7 @@ export const usePersistedForm = (key, initialState, options = {}) => {
         console.warn(`Error restoring form data for "${key}":`, error);
       }
     }
-  }, [key, restoreOnMount, compareWithOriginal, originalData]);
+  }, [key, restoreOnMount, compareWithOriginal, originalData, setFormData, clearFormData]);
 
   // Handle form field change
   const handleChange = useCallback((e) => {
@@ -183,11 +219,11 @@ export const usePersistedForm = (key, initialState, options = {}) => {
     }));
   }, [setFormData]);
 
-  // Reset form to initial state
+  // Reset form to initial state - use ref to avoid stale closure
   const resetForm = useCallback(() => {
-    setFormData(initialState);
+    setFormData(initialStateRef.current);
     clearFormData();
-  }, [initialState, setFormData, clearFormData]);
+  }, [setFormData, clearFormData]);
 
   // Clear form data (usually on successful submit)
   const clearForm = useCallback(() => {
@@ -288,6 +324,13 @@ export const clearSessionByPrefix = (prefix) => {
  * @returns {[object, function, function]} - [params, setParams, clearParams]
  */
 export const usePersistedSearchParams = (defaultParams = {}) => {
+  const defaultParamsRef = useRef(defaultParams);
+  
+  // Update ref when defaultParams changes
+  useEffect(() => {
+    defaultParamsRef.current = defaultParams;
+  }, [defaultParams]);
+  
   const [searchParams, setSearchParams] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const params = { ...defaultParams };
@@ -309,7 +352,7 @@ export const usePersistedSearchParams = (defaultParams = {}) => {
       // Update URL
       const urlParams = new URLSearchParams();
       Object.entries(newParams).forEach(([key, value]) => {
-        if (value !== '' && value !== null && value !== defaultParams[key]) {
+        if (value !== '' && value !== null && value !== defaultParamsRef.current[key]) {
           urlParams.set(key, value);
         }
       });
@@ -322,12 +365,12 @@ export const usePersistedSearchParams = (defaultParams = {}) => {
       
       return newParams;
     });
-  }, [defaultParams]);
+  }, []);
 
   const clearParams = useCallback(() => {
-    setSearchParams(defaultParams);
+    setSearchParams(defaultParamsRef.current);
     window.history.replaceState({}, '', window.location.pathname);
-  }, [defaultParams]);
+  }, []);
 
   return [searchParams, updateParams, clearParams];
 };

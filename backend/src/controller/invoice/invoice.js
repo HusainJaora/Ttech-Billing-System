@@ -1,8 +1,6 @@
 const { checkCustomer, createCustomer } = require("../../utils/getOrCreateCustomer");
 const db = require("../../db/database");
 
-
-
 const createInvoice = async (req, res) => {
   const {
     source_type,        // DIRECT, QUOTATION, REPAIR
@@ -55,7 +53,8 @@ const createInvoice = async (req, res) => {
 
     else if (source_type === "QUOTATION") {
       const [quotations] = await connection.query(
-        `SELECT q.*, c.customer_name, c.customer_address, q.status
+        `SELECT q.quotation_id, q.customer_id, q.status,
+                c.customer_name, c.customer_address
          FROM quotation q
          JOIN customers c ON q.customer_id = c.customer_id
          WHERE q.quotation_id=? AND q.signup_id=?`,
@@ -68,9 +67,13 @@ const createInvoice = async (req, res) => {
       }
 
       const quotation = quotations[0];
-      if (quotation.status !== "ACCEPTED") {
+      
+      // Check status (case-insensitive and handle null)
+      if (!quotation.status || quotation.status.toUpperCase() !== "ACCEPTED") {
         await connection.rollback();
-        return res.status(400).json({ error: "Cannot create invoice. Quotation is not accepted." });
+        return res.status(400).json({ 
+          error: `Cannot create invoice. Quotation status is '${quotation.status || 'undefined'}', must be 'Accepted'.` 
+        });
       }
 
       customer_id = quotation.customer_id;
@@ -85,29 +88,39 @@ const createInvoice = async (req, res) => {
     }
 
     else if (source_type === "REPAIR") {
+      // Get repair details
       const [repairs] = await connection.query(
-        `SELECT * FROM repairs WHERE repair_id=? AND signup_id=?`,
+        `SELECT repair_id, quotation_id, repair_status 
+         FROM repairs 
+         WHERE repair_id=? AND signup_id=?`,
         [source_id, signup_id]
       );
+
       if (!repairs.length) {
         await connection.rollback();
         return res.status(404).json({ error: "Repair not found" });
       }
 
       const repair = repairs[0];
+
       if (!repair.quotation_id) {
         await connection.rollback();
         return res.status(400).json({ error: "Repair does not have linked quotation" });
       }
 
-      RepairCurrentStatus = repair.status
-      if (repair.status !== "Completed") {
+      // Check repair status (use correct field name: repair_status)
+      const RepairCurrentStatus = repair.repair_status;
+      if (!RepairCurrentStatus || RepairCurrentStatus !== "Completed") {
         await connection.rollback();
-        return res.status(400).json({ error: `Invoice cannot be created in ${RepairCurrentStatus}` });
+        return res.status(400).json({ 
+          error: `Invoice cannot be created. Repair status is '${RepairCurrentStatus || 'undefined'}', must be 'Completed'.` 
+        });
       }
 
+      // Get linked quotation
       const [quotations] = await connection.query(
-        `SELECT q.*, c.customer_name, c.customer_address, q.status
+        `SELECT q.quotation_id, q.customer_id, q.status,
+                c.customer_name, c.customer_address
          FROM quotation q
          JOIN customers c ON q.customer_id = c.customer_id
          WHERE q.quotation_id=? AND q.signup_id=?`,
@@ -120,9 +133,13 @@ const createInvoice = async (req, res) => {
       }
 
       const quotation = quotations[0];
-      if (quotation.status !== "Accepted") {
+
+      // Check quotation status (case-insensitive and handle null)
+      if (!quotation.status || quotation.status.toUpperCase() !== "ACCEPTED") {
         await connection.rollback();
-        return res.status(400).json({ error: "Cannot create invoice. Quotation is not accepted." });
+        return res.status(400).json({ 
+          error: `Cannot create invoice. Quotation status is '${quotation.status || 'undefined'}', must be 'Accepted'.` 
+        });
       }
 
       customer_id = quotation.customer_id;
@@ -157,7 +174,6 @@ const createInvoice = async (req, res) => {
     const nextSerial = (latest[0].max_serial || 0) + 1;
 
     const invoice_no = `INV${String(nextSerial).padStart(3, "0")}/${month}/${year}`;
-
 
     // 3️⃣ Calculate Totals
     const subtotal = invoice_items.reduce(
@@ -406,27 +422,26 @@ const getAllInvoice = async (req, res) => {
       FROM invoices i
       JOIN customers c ON i.customer_id = c.customer_id
       WHERE i.signup_id = ?
-      ORDER BY i.created_date DESC, i.created_date DESC
-      `, [signup_id])
+      ORDER BY i.created_date DESC, i.created_time DESC
+      `, [signup_id]);
 
     if (invoices.length === 0) {
-      return res.status(404).json({ message: "No Invoice found" })
+      return res.status(404).json({ message: "No Invoice found" });
     }
 
     res.status(200).json({
       invoices
-    })
+    });
 
   } catch (error) {
     console.error("Error fetching invoice:", error);
     res.status(500).json({ error: "Internal Server Error" });
-
   }
-}
+};
 
 const getSingleInvoice = async (req, res) => {
   const { invoice_id } = req.params;
-  const { signup_id } = req.user; // logged-in user
+  const { signup_id } = req.user;
   const connection = await db.getConnection();
 
   try {
@@ -438,6 +453,8 @@ const getSingleInvoice = async (req, res) => {
          i.invoice_date,
          i.bill_to_name,
          i.bill_to_address,
+         i.ship_to_name,
+         i.ship_to_address,
          i.source_type,
          i.source_id,
          i.status,
@@ -478,7 +495,7 @@ const getSingleInvoice = async (req, res) => {
          warranty,
          quantity,
          unit_price,
-         total_price
+         (quantity * unit_price) AS total_price
        FROM invoice_items
        WHERE invoice_id = ?`,
       [invoice_id]
@@ -573,8 +590,5 @@ const getSingleInvoice = async (req, res) => {
     connection.release();
   }
 };
-
-
-
 
 module.exports = { createInvoice, updateInvoice, getAllInvoice, getSingleInvoice };

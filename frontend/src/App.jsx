@@ -11,7 +11,7 @@ import {Technician, TechnicianList, EditTechnician, TechnicianDetail} from './pa
 import {Customer, CustomerList, CustomerDetail, EditCustomer} from './pages/Customer';
 import { EditSupplier, Supplier, SupplierDetail, SupplierList } from './pages/Master/Supplier';
 import { EditProductCategory, ProductCategory, ProductCategoryList } from './pages/Master/ProductCategories';
-import { Inquiry, InquiryList } from './pages/Repair/Inquiry';
+import { Inquiry, InquiryDetail, InquiryList,EditInquiry } from './pages/Repair/Inquiry';
 import ProfilePage from './pages/userProfile/UserProfile';
 import { InquiryTermsConditions } from './pages/Terms&Conditions/inquiryTerms';
 import { InvoiceTermsConditions } from './pages/Terms&Conditions/invoiceTerms';
@@ -61,6 +61,8 @@ function App() {
             {/* Inquiry Route */}
             <Route path="/repairs/inquiry/add" element={<Inquiry/>} />
             <Route path="/repair/inquiry" element={<InquiryList />} />
+            <Route path="/inquiries/detail/:inquiry_id" element={<InquiryDetail />} />
+            <Route path="/inquiries/edit/:inquiry_id" element={<EditInquiry />} />
 
 
 

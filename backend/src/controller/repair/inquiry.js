@@ -2,126 +2,6 @@ const db = require("../../db/database");
 const { createCustomer } = require("../../utils/getOrCreateCustomer");
 
 
-// const addInquiry = async (req, res) => {
-//     const {
-//         customer_name,
-//         customer_contact,
-//         customer_email = "NA",
-//         customer_address = "NA",
-//         notes,
-//         products
-
-//     } = req.body;
-//     const { signup_id } = req.user;
-
-//     const connection = await db.getConnection();
-
-//     try {
-//         if (!customer_contact || !products || products.length === 0) {
-//             return res.status(400).json({
-//                 error: "Customer contact and at least one product are required"
-//             });
-//         }
-
-//         await connection.beginTransaction();
-//         const [existingCustomer] = await connection.query(
-//             `SELECT customer_id, customer_name, customer_contact, customer_email, customer_address 
-//              FROM customers 
-//              WHERE signup_id=? AND customer_contact=? 
-//              LIMIT 1`,
-//             [signup_id, customer_contact]
-//         );
-        
-//         let customer_id;
-//         let customerInfo;
-        
-//         if (existingCustomer.length > 0) {
-//             customer_id = existingCustomer[0].customer_id;
-//             customerInfo = existingCustomer[0];
-//         } else {
-//             const newCustomer = await createCustomer(connection, signup_id, {
-//                 customer_name,
-//                 customer_contact,
-//                 customer_email,
-//                 customer_address
-//             });
-//             customer_id = newCustomer.customer_id;
-//             customerInfo = {
-//                 customer_id,
-//                 customer_name,
-//                 customer_contact,
-//                 customer_email,
-//                 customer_address
-//             };
-//         }
-        
-//         //  Generate inquiry serial & number
-//         const now = new Date();
-//         const month = now.toLocaleString("default", { month: "short" }).toUpperCase();
-//         const year = now.getFullYear().toString().slice(-2);
-
-//         const [latest] = await connection.query(
-//             "SELECT MAX(inquiry_serial) AS max_serial FROM inquires WHERE signup_id = ?",
-//             [signup_id]
-//         );
-
-//         const nextSerial = (latest[0].max_serial || 0) + 1;
-//         const inquiry_no = `INQ0${nextSerial}/${month}/${year}`;
-
-//         const [inquiryResult] = await connection.query(
-//             `INSERT INTO inquires 
-//              (signup_id, inquiry_serial, inquiry_no, customer_id, notes) 
-//              VALUES (?, ?, ?, ?, ?)`,
-//             [signup_id, nextSerial, inquiry_no, customer_id, notes]
-//         );
-//         const inquiry_id = inquiryResult.insertId;
-
-//         //  Insert all products into inquiry_items
-//         const itemsData = products.map(items => [
-//             inquiry_id,
-//             items.product_name,
-//             items.problem_description || "NA",
-//             items.accessories_given || "NA"
-//         ]);
-
-//         await connection.query(
-//             `INSERT INTO inquiry_items (inquiry_id, product_name, problem_description, accessories_given) 
-//          VALUES ?`,
-//             [itemsData]
-//         );
-
-//         await connection.commit();
-
-//         return res.status(201).json({
-//             message: "Inquiry created successfully",
-//             inquiry_no,
-//             inquiry_id,
-//             inquiry_date: now.toISOString(),
-//             customer: {
-//                 customer_id: customerInfo.customer_id,
-//                 customer_name: customerInfo.customer_name,
-//                 customer_contact: customerInfo.customer_contact,
-//                 customer_email: customerInfo.customer_email,
-//                 customer_address: customerInfo.customer_address
-//             },
-//             products: products.map(item => ({
-//                 product_name: item.product_name,
-//                 problem_description: item.problem_description || "NA",
-//                 accessories_given: item.accessories_given || "NA"
-//             })),
-//             notes: notes || ""
-//         });
-
-//     } catch (error) {
-//         await connection.rollback();
-//         console.error("Error creating inquiry:", error);
-//         res.status(500).json({ error: "Internal Server Error" });
-
-//     } finally {
-//         connection.release();
-//     }
-// }
-
 const addInquiry = async (req, res) => {
     const {
         customer_name,
@@ -242,6 +122,7 @@ const addInquiry = async (req, res) => {
 const updateInquiry = async (req, res) => {
     const { inquiry_id } = req.params;
     const {
+        customer_id,          // NEW: optional customer change
         notes,                // optional: update notes for inquiry
         items,                // optional: add/update items [{item_id?, product_name, problem_description, accessories_given}]
         deleted_item_ids      // optional: array of inquiry_item IDs to delete
@@ -253,7 +134,7 @@ const updateInquiry = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        //  Check if inquiry exists and belongs to the logged-in user
+        // Check if inquiry exists and belongs to the logged-in user
         const [inquiry] = await connection.query(
             `SELECT inquiry_id, customer_id 
              FROM inquires 
@@ -266,7 +147,29 @@ const updateInquiry = async (req, res) => {
             return res.status(404).json({ error: "Inquiry not found" });
         }
 
-        //  Update notes only (no customer info change allowed)
+        // NEW: Update customer_id if provided
+        if (customer_id !== undefined) {
+            // Verify customer exists and belongs to the same user
+            const [customer] = await connection.query(
+                `SELECT customer_id FROM customers 
+                 WHERE customer_id = ? AND signup_id = ?`,
+                [customer_id, signup_id]
+            );
+
+            if (customer.length === 0) {
+                await connection.rollback();
+                return res.status(400).json({ error: "Invalid customer ID" });
+            }
+
+            await connection.query(
+                `UPDATE inquires 
+                 SET customer_id = ? 
+                 WHERE inquiry_id = ? AND signup_id = ?`,
+                [customer_id, inquiry_id, signup_id]
+            );
+        }
+
+        // Update notes only (no customer info change allowed)
         if (notes !== undefined) {
             await connection.query(
                 `UPDATE inquires 
@@ -276,7 +179,7 @@ const updateInquiry = async (req, res) => {
             );
         }
 
-        //  Delete specified items (if any)
+        // Delete specified items (if any)
         if (deleted_item_ids && deleted_item_ids.length > 0) {
             await connection.query(
                 `DELETE FROM inquiry_items 
@@ -286,7 +189,7 @@ const updateInquiry = async (req, res) => {
             );
         }
 
-        //  Add or update items
+        // Add or update items
         if (items && items.length > 0) {
             for (const item of items) {
                 if (item.inquiry_item_id) {
@@ -380,10 +283,10 @@ const getSingleInquiry = async (req, res) => {
     const { signup_id } = req.user;
 
     try {
-        // 1. Fetch inquiry + customer + technician
+        // 1. Fetch inquiry + customer + technician (ADDED customer_address)
         const [inquiryRows] = await db.query(`
             SELECT i.inquiry_id, i.inquiry_no, i.status, i.notes, i.created_date, i.created_time,
-                   c.customer_id, c.customer_name, c.customer_contact, c.customer_email,
+                   c.customer_id, c.customer_name, c.customer_contact, c.customer_email, c.customer_address,
                    t.technician_id, t.technician_name, t.technician_phone
             FROM inquires i
             JOIN customers c ON i.customer_id = c.customer_id
@@ -464,10 +367,14 @@ const getAllInquiries = async (req, res) => {
           COALESCE(t.technician_name, 'Not Assigned') AS technician_name,
           i.notes,
           i.created_date,
-          i.created_time
+          i.created_time,
+          CASE WHEN q.quotation_id IS NOT NULL THEN 1 ELSE 0 END AS has_quotation,
+          q.quotation_id,
+          q.quotation_no
         FROM inquires i
         JOIN customers c ON i.customer_id = c.customer_id
         LEFT JOIN technicians t ON i.technician_id = t.technician_id
+        LEFT JOIN quotation q ON i.inquiry_id = q.inquiry_id
         WHERE i.signup_id = ?
         ORDER BY i.inquiry_id DESC
         `,
@@ -485,7 +392,6 @@ const getAllInquiries = async (req, res) => {
       res.status(500).json({ error: "Internal Server Error" });
     }
 };
-
 
 const getInquiryReceipt = async (req, res) => {
     const { inquiry_id } = req.params;

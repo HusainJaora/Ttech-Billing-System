@@ -74,6 +74,16 @@ const addinquiryValidation = async (req, res, next) => {
 
 const updateInquiryValidation = (req, res, next) => {
     const schema = joi.object({
+        customer_id: joi.number()
+            .integer()
+            .positive()
+            .optional()
+            .messages({
+                "number.base": "Customer ID must be a number",
+                "number.integer": "Customer ID must be an integer",
+                "number.positive": "Customer ID must be a positive number"
+            }),
+            
         notes: joi.string()
             .trim()
             .optional()
@@ -134,20 +144,20 @@ const updateInquiryValidation = (req, res, next) => {
             })
     })
         // Require at least one of these keys in body
-        .or("notes", "items", "deleted_item_ids")
+        .or("customer_id", "notes", "items", "deleted_item_ids")
         .messages({
-            "object.missing": "You must provide notes, items, or deleted_item_ids to update"
+            "object.missing": "You must provide customer_id, notes, items, or deleted_item_ids to update"
         });
 
     const { error } = schema.validate(req.body);
 
     if (error) {
-        // Send only the first validation error message
         return res.status(400).json({ error: error.details[0].message });
     }
 
     next();
 };
+
 const deleteInquiryValidation = (req, res, next) => {
     const schema = joi.object({
         inquiry_id: joi.number()

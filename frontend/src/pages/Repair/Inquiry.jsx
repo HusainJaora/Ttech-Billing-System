@@ -1,51 +1,900 @@
 import { useState,useRef,useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams,useSearchParams } from 'react-router-dom';
 import axiosInstance from '../../api/axios';
 import ENDPOINTS from '../../api/endpoint';
-// import { Plus, Trash2, Save, ArrowRight, ArrowLeft, CheckCircle, Printer, Download, X } from 'lucide-react';
-import {
-  Download,
-  X,
-  Printer,
-  ArrowLeft,
-  ArrowRight,
-  Save,
-  Plus,
-  AlertCircle, 
-  Eye, 
-  Edit2, 
-  Trash2, 
-  UserPlus, 
-  RefreshCw, 
-  CheckCircle, 
-  Clock, 
-  XCircle,
-  FileText,
-  ClipboardList,
-  Calendar,
-  User,
-  Phone,
-  Wrench
-} from 'lucide-react';
+import { SearchableDropdown } from '../../components/Dropdown';
+
+import {Download,X,Printer,ArrowLeft,ArrowRight,Save,Plus,AlertCircle,Eye,Edit2,Trash2,UserPlus,RefreshCw,CheckCircle,Clock,XCircle,
+FileText,ClipboardList,Calendar,User,Phone,Wrench,Mail,MapPin,Package,Sparkles,DollarSign} from 'lucide-react';
 
 import { SearchActionBar } from '../../components/SearchActionBar';
 import { ExportButton } from '../../components/ExportButton';
 import { Pagination } from '../../components/Pagination';
+import {usePersistedForm, useScrollPosition, useSessionStorage } from '../../hooks/SessionStorage';
 
 
 
+
+export const Inquiry = () => {
+  // Session storage keys
+  const STEP_KEY = 'inquiry_current_step';
+  const CONTACT_KEY = 'inquiry_contact_number';
+  const CUSTOMER_EXISTS_KEY = 'inquiry_customer_exists';
+
+  // Initialize state from session storage on mount
+  const [currentStep, setCurrentStep] = useState(() => {
+    const saved = sessionStorage.getItem(STEP_KEY);
+    const step = saved ? parseInt(saved) : 0;
+    // If step is 4 (success) but no inquiry details, reset to 0
+    return step === 4 ? 0 : step;
+  });
+
+  const [contactNumber, setContactNumber] = useState(() => {
+    return sessionStorage.getItem(CONTACT_KEY) || '';
+  });
+
+  const [customerExists, setCustomerExists] = useState(() => {
+    const saved = sessionStorage.getItem(CUSTOMER_EXISTS_KEY);
+    return saved === 'true';
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [checkingCustomer, setCheckingCustomer] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  const [inquiryDetails, setInquiryDetails] = useState(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+
+  // Use persisted form with session storage
+  const {
+    formData,
+    handleChange: handleFormChange,
+    updateFields,
+    resetForm,
+    clearForm
+  } = usePersistedForm('add_inquiry', {
+    customer_name: '',
+    customer_contact: '',
+    customer_email: '',
+    customer_address: '',
+    notes: '',
+    products: [
+      {
+        product_name: '',
+        problem_description: '',
+        accessories_given: ''
+      }
+    ]
+  }, {
+    clearOnSubmit: false,
+    restoreOnMount: true
+  });
+
+  // Save step to session storage whenever it changes
+  useEffect(() => {
+    sessionStorage.setItem(STEP_KEY, currentStep.toString());
+  }, [currentStep]);
+
+  // Save contact number to session storage
+  useEffect(() => {
+    if (contactNumber) {
+      sessionStorage.setItem(CONTACT_KEY, contactNumber);
+    }
+  }, [contactNumber]);
+
+  // Save customer exists flag
+  useEffect(() => {
+    sessionStorage.setItem(CUSTOMER_EXISTS_KEY, customerExists.toString());
+  }, [customerExists]);
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      setNotification({ show: false, type: '', message: '' });
+    }, 5000);
+  };
+
+  // Check if customer exists by contact number
+  const checkCustomerExists = async () => {
+    if (!/^[0-9]{10}$/.test(contactNumber)) {
+      setErrors({ contact: 'Phone number must be exactly 10 digits' });
+      return;
+    }
+
+    setCheckingCustomer(true);
+    setErrors({});
+
+    try {
+      const response = await axiosInstance.post(
+        ENDPOINTS.CUSTOMER.CHECK_BY_CONTACT,
+        { customer_contact: contactNumber }
+      );
+      
+      if (response.data && response.data.exists) {
+        setCustomerExists(true);
+        updateFields({
+          customer_name: response.data.customer.customer_name || '',
+          customer_contact: contactNumber,
+          customer_email: response.data.customer.customer_email || '',
+          customer_address: response.data.customer.customer_address || ''
+        });
+        setCurrentStep(2);
+      } else {
+        setCustomerExists(false);
+        updateFields({ customer_contact: contactNumber });
+        setCurrentStep(1);
+      }
+    } catch (err) {
+      console.error('Error checking customer:', err);
+      setCustomerExists(false);
+      updateFields({ customer_contact: contactNumber });
+      setCurrentStep(1);
+    } finally {
+      setCheckingCustomer(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    handleFormChange(e);
+    const { name } = e.target;
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleProductChange = (index, field, value) => {
+    const updatedProducts = [...formData.products];
+    updatedProducts[index][field] = value;
+    updateFields({ products: updatedProducts });
+    if (errors[`product_${index}_${field}`]) {
+      setErrors(prev => ({ ...prev, [`product_${index}_${field}`]: '' }));
+    }
+  };
+
+  const addProduct = () => {
+    updateFields({
+      products: [
+        ...formData.products,
+        { product_name: '', problem_description: '', accessories_given: '' }
+      ]
+    });
+  };
+
+  const removeProduct = (index) => {
+    if (formData.products.length > 1) {
+      const updatedProducts = formData.products.filter((_, i) => i !== index);
+      updateFields({ products: updatedProducts });
+    }
+  };
+
+  const validateStep1 = () => {
+    const newErrors = {};
+    if (!formData.customer_name.trim()) {
+      newErrors.customer_name = 'Customer name is required';
+    }
+    if (!formData.customer_contact.trim()) {
+      newErrors.customer_contact = 'Customer contact is required';
+    } else if (!/^\d{10}$/.test(formData.customer_contact)) {
+      newErrors.customer_contact = 'Contact number must be 10 digits';
+    }
+    if (formData.customer_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customer_email)) {
+      newErrors.customer_email = 'Email must be valid';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateStep2 = () => {
+    const newErrors = {};
+    if (formData.products.length === 0) {
+      newErrors.products = 'At least one product is required';
+    }
+    formData.products.forEach((product, i) => {
+      if (!product.product_name.trim()) {
+        newErrors[`product_${i}_name`] = `Product name is required for item ${i + 1}`;
+      }
+    });
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (currentStep === 1 && validateStep1()) {
+      setCurrentStep(2);
+      setErrors({});
+    } else if (currentStep === 2 && validateStep2()) {
+      setCurrentStep(3);
+      setErrors({});
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep === 1 || currentStep === 2) {
+      setCurrentStep(0);
+      setContactNumber('');
+      setCustomerExists(false);
+      resetForm();
+      // Clear session storage
+      sessionStorage.removeItem(STEP_KEY);
+      sessionStorage.removeItem(CONTACT_KEY);
+      sessionStorage.removeItem(CUSTOMER_EXISTS_KEY);
+    } else {
+      setCurrentStep(prev => prev - 1);
+    }
+    setErrors({});
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateStep2()) return;
+
+    setLoading(true);
+
+    try {
+      const response = await axiosInstance.post(ENDPOINTS.INQUIRY.ADD_INQUIRY, formData);
+      
+      setInquiryDetails(response.data);
+      showNotification('success', 'Inquiry created successfully!');
+      
+      setCurrentStep(4); // Success step
+      
+      // Clear all session storage AFTER setting step 4
+      // This ensures refresh takes user back to start
+      setTimeout(() => {
+        clearForm();
+        sessionStorage.removeItem(STEP_KEY);
+        sessionStorage.removeItem(CONTACT_KEY);
+        sessionStorage.removeItem(CUSTOMER_EXISTS_KEY);
+      }, 100);
+    } catch (err) {
+      console.error('Error creating inquiry:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Failed to create inquiry';
+      showNotification('error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    resetForm();
+    setCurrentStep(0);
+    setContactNumber('');
+    setErrors({});
+    setInquiryDetails(null);
+    setCustomerExists(false);
+    setNotification({ show: false, type: '', message: '' });
+    
+    // Clear all session storage
+    sessionStorage.removeItem(STEP_KEY);
+    sessionStorage.removeItem(CONTACT_KEY);
+    sessionStorage.removeItem(CUSTOMER_EXISTS_KEY);
+  };
+
+  // Show receipt if requested
+  if (showReceipt && inquiryDetails) {
+    return (
+      <InquiryReceipt 
+        inquiryId={inquiryDetails.inquiry_id} 
+        onClose={() => {
+          setShowReceipt(false);
+          setCurrentStep(4);
+        }}
+      />
+    );
+  }
+
+  // Success Screen
+  if (currentStep === 4 && inquiryDetails) {
+    return (
+      <>
+        <header className="bg-white shadow-lg border-b border-gray-100">
+          <div className="px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
+                  <CheckCircle className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-green-600 bg-clip-text text-transparent">
+                    Inquiry Created Successfully!
+                  </h1>
+                  <p className="text-sm text-gray-600 flex items-center mt-1">
+                    <Sparkles className="h-3 w-3 mr-1 text-green-500" />
+                    Your inquiry has been registered
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
+              <h2 className="text-xl font-bold flex items-center">
+                <CheckCircle className="h-5 w-5 mr-2" />
+                Inquiry Details
+              </h2>
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 space-y-4 border-2 border-gray-200">
+                <div className="flex justify-between items-center pb-3 border-b-2 border-gray-300">
+                  <span className="font-semibold text-gray-700">Inquiry Number:</span>
+                  <span className="font-bold text-xl text-indigo-600">{inquiryDetails.inquiry_no}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-gray-700">Inquiry Date:</span>
+                  <span className="text-gray-900">{new Date(inquiryDetails.inquiry_date).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-gray-700">Customer:</span>
+                  <span className="text-gray-900 font-semibold">{inquiryDetails.customer?.customer_name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-gray-700">Contact:</span>
+                  <span className="text-gray-900">{inquiryDetails.customer?.customer_contact}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-gray-700">Products:</span>
+                  <span className="text-gray-900 font-semibold">{inquiryDetails.products?.length} item(s)</span>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-4">
+                <button
+                  onClick={() => setShowReceipt(true)}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-semibold shadow-lg transform hover:scale-105"
+                >
+                  <Printer className="w-5 h-5" />
+                  View/Print Receipt
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg transform hover:scale-105"
+                >
+                  Create Another Inquiry
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/* Header */}
+      <header className="bg-white shadow-lg border-b border-gray-100">
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+                <Package className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent">
+                  Add New Inquiry
+                </h1>
+                <p className="text-sm text-gray-600 flex items-center mt-1">
+                  <Sparkles className="h-3 w-3 mr-1 text-indigo-500" />
+                  Create a new repair inquiry with customer and product details
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Notification */}
+        {notification.show && (
+          <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg transform transition-all animate-in slide-in-from-top ${
+            notification.type === 'success'
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+              : notification.type === 'error'
+              ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300'
+              : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300'
+          }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${
+                notification.type === 'success' ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {notification.message}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Progress Steps */}
+        {currentStep > 0 && (
+          <div className="mb-8 bg-white rounded-xl shadow-md border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center flex-1">
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                  currentStep >= 1 ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg' : 'bg-gray-300 text-gray-600'
+                } font-semibold transition-all`}>
+                  1
+                </div>
+                <div className={`flex-1 h-2 mx-2 rounded-full ${
+                  currentStep >= 2 ? 'bg-gradient-to-r from-indigo-500 to-purple-600' : 'bg-gray-300'
+                } transition-all`}></div>
+              </div>
+              <div className="flex items-center flex-1">
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                  currentStep >= 2 ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg' : 'bg-gray-300 text-gray-600'
+                } font-semibold transition-all`}>
+                  2
+                </div>
+                <div className={`flex-1 h-2 mx-2 rounded-full ${
+                  currentStep >= 3 ? 'bg-gradient-to-r from-indigo-500 to-purple-600' : 'bg-gray-300'
+                } transition-all`}></div>
+              </div>
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                currentStep >= 3 ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg' : 'bg-gray-300 text-gray-600'
+              } font-semibold transition-all`}>
+                3
+              </div>
+            </div>
+            <div className="flex justify-between mt-3 text-sm font-medium">
+              <span className={`${currentStep >= 1 ? 'text-indigo-600' : 'text-gray-500'}`}>Customer Details</span>
+              <span className={`${currentStep >= 2 ? 'text-indigo-600' : 'text-gray-500'}`}>Product Details</span>
+              <span className={`${currentStep >= 3 ? 'text-indigo-600' : 'text-gray-500'}`}>Review & Submit</span>
+            </div>
+          </div>
+        )}
+
+        {/* Step 0: Contact Lookup */}
+        {currentStep === 0 && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+              <h2 className="text-xl font-bold flex items-center">
+                <Phone className="h-5 w-5 mr-2" />
+                Enter Customer Contact
+              </h2>
+              <p className="text-indigo-100 mt-1 text-sm">We'll check if this customer already exists in our system</p>
+            </div>
+
+            <div className="p-8">
+              <div className="max-w-md mx-auto space-y-6">
+                <div className="group">
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <Phone className="h-4 w-4 text-indigo-500" />
+                    <span>Contact Number <span className="text-red-500">*</span></span>
+                  </label>
+                  <input
+                    type="text"
+                    value={contactNumber}
+                    onChange={(e) => {
+                      setContactNumber(e.target.value);
+                      setErrors({});
+                    }}
+                    maxLength={10}
+                    className={`w-full px-6 py-4 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg text-center font-semibold transition-all shadow-sm ${
+                      errors.contact ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
+                    }`}
+                    placeholder="10 digit phone number"
+                    autoFocus
+                  />
+                  {errors.contact && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{errors.contact}</span>
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={checkCustomerExists}
+                  disabled={checkingCustomer || contactNumber.length !== 10}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-lg shadow-lg transform hover:scale-105 disabled:transform-none"
+                >
+                  {checkingCustomer ? (
+                    <span className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      <span>Checking...</span>
+                    </span>
+                  ) : (
+                    'Continue'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 1: Customer Details */}
+        {currentStep === 1 && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+              <h2 className="text-xl font-bold flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                New Customer Information
+              </h2>
+              <p className="text-indigo-100 mt-1 text-sm">This is a new customer. Please fill in their details.</p>
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div className="group">
+                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Phone className="h-4 w-4 text-indigo-500" />
+                  <span>Contact Number <span className="text-red-500">*</span></span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.customer_contact}
+                  disabled
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 text-lg font-semibold text-gray-600"
+                />
+              </div>
+
+              <div className="group">
+                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <User className="h-4 w-4 text-indigo-500" />
+                  <span>Customer Name <span className="text-red-500">*</span></span>
+                </label>
+                <input
+                  type="text"
+                  name="customer_name"
+                  value={formData.customer_name}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                    errors.customer_name ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
+                  }`}
+                  placeholder="Enter customer name"
+                />
+                {errors.customer_name && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{errors.customer_name}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="group">
+                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Mail className="h-4 w-4 text-indigo-500" />
+                  <span>Email Address</span>
+                </label>
+                <input
+                  type="email"
+                  name="customer_email"
+                  value={formData.customer_email}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                    errors.customer_email ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
+                  }`}
+                  placeholder="customer@example.com (optional)"
+                />
+                {errors.customer_email && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{errors.customer_email}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="group">
+                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                  <MapPin className="h-4 w-4 text-indigo-500" />
+                  <span>Address</span>
+                </label>
+                <textarea
+                  name="customer_address"
+                  value={formData.customer_address}
+                  onChange={handleChange}
+                  rows={4}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none shadow-sm hover:border-indigo-300"
+                  placeholder="Enter address (optional)"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-6 border-t-2 border-gray-100">
+                <button
+                  onClick={handleBack}
+                  className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  Back
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium shadow-lg transform hover:scale-105"
+                >
+                  Next
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Product Details */}
+        {currentStep === 2 && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center">
+                    <Package className="h-5 w-5 mr-2" />
+                    Product/Item Details
+                  </h2>
+                  <p className="text-indigo-100 mt-1 text-sm">Add the products for repair</p>
+                </div>
+                <button
+                  onClick={addProduct}
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all font-medium shadow-md"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Product
+                </button>
+              </div>
+            </div>
+
+            {customerExists && (
+              <div className="mx-8 mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl">
+                <p className="text-green-800 text-sm font-medium flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Existing customer: <span className="font-bold ml-1">{formData.customer_name}</span>
+                </p>
+              </div>
+            )}
+
+            <div className="p-8 space-y-4">
+              {formData.products.map((product, index) => (
+                <div key={index} className="border-2 border-gray-200 rounded-xl p-6 relative bg-gradient-to-br from-gray-50 to-white hover:border-indigo-300 transition-all">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-900 flex items-center">
+                      <Package className="h-4 w-4 mr-2 text-indigo-500" />
+                      Product {index + 1}
+                    </h3>
+                    {formData.products.length > 1 && (
+                      <button
+                        onClick={() => removeProduct(index)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="group">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Product Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={product.product_name}
+                        onChange={(e) => handleProductChange(index, 'product_name', e.target.value)}
+                        className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm ${
+                          errors[`product_${index}_name`] ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-indigo-300'
+                        }`}
+                        placeholder="e.g., iPhone 12, Samsung TV"
+                      />
+                      {errors[`product_${index}_name`] && (
+                        <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>{errors[`product_${index}_name`]}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="group">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Problem Description
+                      </label>
+                      <textarea
+                        value={product.problem_description}
+                        onChange={(e) => handleProductChange(index, 'problem_description', e.target.value)}
+                        rows={3}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none shadow-sm hover:border-indigo-300"
+                        placeholder="Describe the issue..."
+                      />
+                    </div>
+
+                    <div className="group">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Accessories Given
+                      </label>
+                      <input
+                        type="text"
+                        value={product.accessories_given}
+                        onChange={(e) => handleProductChange(index, 'accessories_given', e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm hover:border-indigo-300"
+                        placeholder="e.g., Charger, Box, Earphones"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {errors.products && (
+                <p className="text-sm text-red-600 flex items-center space-x-1">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.products}</span>
+                </p>
+              )}
+
+              <div className="flex items-center justify-between pt-6 border-t-2 border-gray-100">
+                <button
+                  onClick={handleBack}
+                  className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium shadow-sm transform hover:scale-105"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  Back
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium shadow-lg transform hover:scale-105"
+                >
+                  Next
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Review & Submit */}
+        {currentStep === 3 && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+                <h2 className="text-xl font-bold flex items-center">
+                  <FileText className="h-5 w-5 mr-2" />
+                  Review Details
+                </h2>
+                <p className="text-indigo-100 mt-1 text-sm">Please review all information before submitting</p>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-3 text-lg flex items-center">
+                    <User className="h-5 w-5 mr-2 text-indigo-500" />
+                    Customer Information
+                  </h3>
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-5 space-y-3 border-2 border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 font-medium">Name:</span>
+                      <span className="font-bold text-gray-900">{formData.customer_name}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 font-medium">Contact:</span>
+                      <span className="font-bold text-gray-900">{formData.customer_contact}</span>
+                    </div>
+                    {formData.customer_email && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 font-medium">Email:</span>
+                        <span className="font-semibold text-gray-900">{formData.customer_email}</span>
+                      </div>
+                    )}
+                    {formData.customer_address && (
+                      <div className="flex justify-between items-start">
+                        <span className="text-gray-600 font-medium">Address:</span>
+                        <span className="font-semibold text-gray-900 text-right max-w-xs">{formData.customer_address}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-3 text-lg flex items-center">
+                    <Package className="h-5 w-5 mr-2 text-indigo-500" />
+                    Products ({formData.products.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {formData.products.map((product, index) => (
+                      <div key={index} className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-5 border-2 border-indigo-200">
+                        <div className="font-bold text-gray-900 mb-2 flex items-center">
+                          <span className="bg-indigo-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">
+                            {index + 1}
+                          </span>
+                          {product.product_name}
+                        </div>
+                        {product.problem_description && (
+                          <div className="text-sm text-gray-700 mb-2 ml-8">
+                            <span className="font-semibold">Problem:</span> {product.problem_description}
+                          </div>
+                        )}
+                        {product.accessories_given && (
+                          <div className="text-sm text-gray-700 ml-8">
+                            <span className="font-semibold">Accessories:</span> {product.accessories_given}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <FileText className="h-4 w-4 text-indigo-500" />
+                    <span>Additional Notes (Optional)</span>
+                  </label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleChange}
+                    rows={4}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none shadow-sm hover:border-indigo-300"
+                    placeholder="Any additional information..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handleBack}
+                disabled={loading}
+                className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-sm transform hover:scale-105 disabled:transform-none"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                Back
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-lg shadow-lg transform hover:scale-105 disabled:transform-none"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Creating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    <span>Create Inquiry</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Info Card */}
+        {currentStep > 0 && currentStep < 4 && (
+          <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-bold text-blue-900">Information</h3>
+                <p className="text-sm text-blue-800 mt-1">
+                  All fields marked with <span className="text-red-500 font-semibold">*</span> are required.
+                  Your progress is automatically saved and will be restored if you navigate away.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </>
+  );
+};
 
 
 export const InquiryList = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  // Initialize state from URL params
   const [inquiries, setInquiries] = useState([]);
   const [filteredInquiries, setFilteredInquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page')) || 1);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteInquiryId, setDeleteInquiryId] = useState(null);
@@ -59,7 +908,28 @@ export const InquiryList = () => {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedInquiryId, setSelectedInquiryId] = useState(null);
   
+  // NEW: State for update technician modal
+  const [showUpdateTechnicianModal, setShowUpdateTechnicianModal] = useState(false);
+  const [updateTechnicianInquiryId, setUpdateTechnicianInquiryId] = useState(null);
+  const [updateSelectedTechnician, setUpdateSelectedTechnician] = useState('');
+  
   const ITEMS_PER_PAGE = 20;
+
+  // ============================================
+  // SCROLL POSITION MANAGEMENT WITH HOOK
+  // ============================================
+  
+  const { saveScroll, restoreScroll, clearScroll } = useScrollPosition(
+    'inquiryList',
+    false // Don't auto-restore on mount
+  );
+
+  // Restore scroll position after data loads
+  useEffect(() => {
+    if (!loading && inquiries.length > 0) {
+      restoreScroll(300);
+    }
+  }, [loading, inquiries.length, restoreScroll]);
 
   useEffect(() => {
     fetchInquiries();
@@ -68,8 +938,19 @@ export const InquiryList = () => {
 
   useEffect(() => {
     filterInquiries();
-    setCurrentPage(1);
+    // Don't reset page if we're coming back from navigation
+    if (!searchParams.get('page')) {
+      setCurrentPage(1);
+    }
   }, [searchTerm, inquiries]);
+
+  // Update URL when state changes
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set('search', searchTerm);
+    if (currentPage > 1) params.set('page', currentPage.toString());
+    setSearchParams(params, { replace: true });
+  }, [searchTerm, currentPage]);
 
   const fetchInquiries = async (isManualRefresh = false) => {
     try {
@@ -80,7 +961,7 @@ export const InquiryList = () => {
       }
       
       const response = await axiosInstance.get(ENDPOINTS.INQUIRY.INQUIRY_LIST);
-      const inquiryData = response.data.inquiries || [];
+      const inquiryData = response.data.inquiries || []; 
       setInquiries(inquiryData);
       setError(null);
     } catch (err) {
@@ -178,6 +1059,36 @@ export const InquiryList = () => {
     }
   };
 
+  // NEW: Handle Update Technician Click
+  const handleUpdateTechnicianClick = (inquiryId, currentTechnicianId) => {
+    setUpdateTechnicianInquiryId(inquiryId);
+    setUpdateSelectedTechnician(currentTechnicianId || '');
+    setShowUpdateTechnicianModal(true);
+  };
+
+  // NEW: Handle Update Technician Confirm
+  const handleUpdateTechnicianConfirm = async () => {
+    if (!updateSelectedTechnician) {
+      showNotification('error', 'Please select a technician');
+      return;
+    }
+
+    try {
+      await axiosInstance.patch(
+        `${ENDPOINTS.INQUIRY_STATUS.UPDATE_TECHNICIAN}/${updateTechnicianInquiryId}/update-technician`,
+        { technician_id: updateSelectedTechnician }
+      );
+      showNotification('success', 'Technician updated successfully');
+      setShowUpdateTechnicianModal(false);
+      setUpdateTechnicianInquiryId(null);
+      setUpdateSelectedTechnician('');
+      fetchInquiries();
+    } catch (err) {
+      showNotification('error', err.response?.data?.message || 'Failed to update technician');
+      // Keep modal open on error so user can try again
+    }
+  };
+
   const handleStatusClick = (inquiryId, action) => {
     setStatusInquiryId(inquiryId);
     setStatusAction(action);
@@ -203,14 +1114,14 @@ export const InquiryList = () => {
   };
 
   const handlePrintClick = (inquiryId) => {
-  setSelectedInquiryId(inquiryId);
-  setShowReceiptModal(true);
-};
+    setSelectedInquiryId(inquiryId);
+    setShowReceiptModal(true);
+  };
 
-const handleCloseReceipt = () => {
-  setShowReceiptModal(false);
-  setSelectedInquiryId(null);
-};
+  const handleCloseReceipt = () => {
+    setShowReceiptModal(false);
+    setSelectedInquiryId(null);
+  };
 
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -247,11 +1158,28 @@ const handleCloseReceipt = () => {
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
+    clearScroll(); // Clear saved scroll position
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleManualRefresh = () => {
     fetchInquiries(true);
+  };
+
+  // Navigation handlers with scroll position saving
+  const handleViewDetails = (inquiryId) => {
+    saveScroll(); // Save current scroll before navigation
+    navigate(`/inquiries/detail/${inquiryId}`);
+  };
+
+  const handleEditInquiry = (inquiryId) => {
+    saveScroll(); // Save current scroll before navigation
+    navigate(`/inquiries/edit/${inquiryId}`);
+  };
+
+  const handleCreateQuotation = (inquiryId) => {
+    saveScroll(); // Save current scroll before navigation
+    navigate(`/quotations/create?inquiry_id=${inquiryId}`);
   };
 
   if (loading && inquiries.length === 0) {
@@ -433,86 +1361,97 @@ const handleCloseReceipt = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center justify-center space-x-2">
-                        {/* View Details Button */}
-                                <button
-                     onClick={() => navigate(`/inquiries/detail/${inquiry.inquiry_id}`)}
-                     className="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition text-xsfont-medium"
-                     title="View details"
-    >
-      <Eye className="h-3.5 w-3.5" />
+                            <div className="flex items-center justify-center space-x-2">
+                              {/* View Details Button */}
+                              <button
+                                onClick={() => handleViewDetails(inquiry.inquiry_id)}
+                                className="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition text-xs font-medium"
+                                title="View details"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
                               </button>
 
-    {/* Print/Download Receipt Button */}
-    <button
-      onClick={() => handlePrintClick(inquiry.inquiry_id)}
-      className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition text-xs font-medium"
-      title="Print/Download Receipt"
-    >
-      <Printer className="h-3.5 w-3.5" />
-    </button>
-    
-    {/* Conditional buttons based on status */}
-    {inquiry.status.toLowerCase() !== 'cancelled' && inquiry.status.toLowerCase() !== 'done' && (
-      <>
-        <button
-          onClick={() => navigate(`/inquiries/edit/${inquiry.inquiry_id}`)}
-          className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition text-xs font-medium"
-          title="Edit inquiry"
-        >
-          <Edit2 className="h-3.5 w-3.5" />
-        </button>
+                              {/* Print/Download Receipt Button */}
+                              <button
+                                onClick={() => handlePrintClick(inquiry.inquiry_id)}
+                                className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition text-xs font-medium"
+                                title="Print/Download Receipt"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </button>
+                              
+                              {/* Conditional buttons based on status */}
+                              {inquiry.status.toLowerCase() !== 'cancelled' && inquiry.status.toLowerCase() !== 'done' && (
+                                <>
+                                  <button
+                                    onClick={() => handleEditInquiry(inquiry.inquiry_id)}
+                                    className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition text-xs font-medium"
+                                    title="Edit inquiry"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </button>
 
-        {inquiry.status.toLowerCase() === 'pending' && (
-          <button
-            onClick={() => handleAssignClick(inquiry.inquiry_id)}
-            className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition text-xs font-medium"
-            title="Assign technician"
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-          </button>
-        )}
+                                  {inquiry.status.toLowerCase() === 'pending' && (
+                                    <button
+                                      onClick={() => handleAssignClick(inquiry.inquiry_id)}
+                                      className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition text-xs font-medium"
+                                      title="Assign technician"
+                                    >
+                                      <UserPlus className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
 
-        {inquiry.status.toLowerCase() === 'technician assigned' && (
-          <button
-            onClick={() => handleStatusClick(inquiry.inquiry_id, 'done')}
-            className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition text-xs font-medium"
-            title="Mark as done"
-          >
-            <CheckCircle className="h-3.5 w-3.5" />
-          </button>
-        )}
+                                  {/* NEW: Update Technician Button - Only show when status is "Technician Assigned" */}
+                                  {inquiry.status.toLowerCase() === 'technician assigned' && (
+                                    <>
+                                      <button
+                                        onClick={() => handleUpdateTechnicianClick(inquiry.inquiry_id, inquiry.technician_id)}
+                                        className="inline-flex items-center px-3 py-1.5 bg-cyan-50 text-cyan-600 rounded-lg hover:bg-cyan-100 transition text-xs font-medium"
+                                        title="Update technician"
+                                      >
+                                        <RefreshCw className="h-3.5 w-3.5" />
+                                      </button>
 
-        <button
-          onClick={() => handleStatusClick(inquiry.inquiry_id, 'cancel')}
-          className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition text-xs font-medium"
-          title="Cancel inquiry"
-        >
-          <XCircle className="h-3.5 w-3.5" />
-        </button>
-      </>
-    )}
+                                      <button
+                                        onClick={() => handleStatusClick(inquiry.inquiry_id, 'done')}
+                                        className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition text-xs font-medium"
+                                        title="Mark as done"
+                                      >
+                                        <CheckCircle className="h-3.5 w-3.5" />
+                                      </button>
+                                    </>
+                                  )}
 
-    {inquiry.status.toLowerCase() === 'done' && (
-      <button
-        onClick={() => navigate(`/quotations/create?inquiry_id=${inquiry.inquiry_id}`)}
-        className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition text-xs font-medium"
-        title="Create quotation"
-      >
-        <FileText className="h-3.5 w-3.5 mr-1" />
-        <span>Quotation</span>
-      </button>
-    )}
+                                  <button
+                                    onClick={() => handleStatusClick(inquiry.inquiry_id, 'cancel')}
+                                    className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition text-xs font-medium"
+                                    title="Cancel inquiry"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5" />
+                                  </button>
+                                </>
+                              )}
 
-    <button
-      onClick={() => handleDeleteClick(inquiry.inquiry_id)}
-      className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition text-xs font-medium"
-      title="Delete inquiry"
-    >
-      <Trash2 className="h-3.5 w-3.5" />
-    </button>
-  </div>
-</td>
+                              {inquiry.status.toLowerCase() === 'done' && !inquiry.has_quotation && (
+                                <button
+                                  onClick={() => handleCreateQuotation(inquiry.inquiry_id)}
+                                  className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition text-xs font-medium"
+                                  title="Create quotation"
+                                >
+                                  <FileText className="h-3.5 w-3.5 mr-1" />
+                                  <span>Quotation</span>
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => handleDeleteClick(inquiry.inquiry_id)}
+                                className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition text-xs font-medium"
+                                title="Delete inquiry"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -601,18 +1540,16 @@ const handleCloseReceipt = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Technician
               </label>
-              <select
+              <SearchableDropdown
+                options={technicians}
                 value={selectedTechnician}
-                onChange={(e) => setSelectedTechnician(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Choose a technician...</option>
-                {technicians.map((tech) => (
-                  <option key={tech.technician_id} value={tech.technician_id}>
-                    {tech.technician_name} - {tech.technician_phone}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedTechnician}
+                placeholder="Choose a technician..."
+                displayKey="technician_name"
+                valueKey="technician_id"
+                searchKeys={["technician_name", "technician_phone"]}
+                subtitleKey="technician_phone"
+              />
             </div>
             <div className="flex space-x-3">
               <button
@@ -626,6 +1563,66 @@ const handleCloseReceipt = () => {
                 className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
               >
                 Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Update Technician Modal */}
+      {showUpdateTechnicianModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-12 w-12 rounded-full bg-cyan-100 flex items-center justify-center">
+                <RefreshCw className="h-6 w-6 text-cyan-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Update Technician</h3>
+            </div>
+            
+            {/* Error message inside modal */}
+            {notification.show && notification.type === 'error' && (
+              <div className="mb-4 rounded-lg border-2 border-red-300 bg-gradient-to-r from-red-50 to-rose-50 p-3 flex items-start space-x-2">
+                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm font-medium text-red-800">{notification.message}</p>
+              </div>
+            )}
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select New Technician
+              </label>
+               <SearchableDropdown
+                options={technicians}
+                value={updateSelectedTechnician}
+                onChange={setUpdateSelectedTechnician}
+                placeholder="Choose a technician..."
+                displayKey="technician_name"
+                valueKey="technician_id"
+                searchKeys={["technician_name", "technician_phone"]}
+                subtitleKey="technician_phone"
+               />
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowUpdateTechnicianModal(false);
+                  setUpdateTechnicianInquiryId(null);
+                  setUpdateSelectedTechnician('');
+                  // Clear any error notifications when closing
+                  if (notification.show && notification.type === 'error') {
+                    setNotification({ show: false, type: '', message: '' });
+                  }
+                }}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateTechnicianConfirm}
+                className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition font-medium"
+              >
+                Update
               </button>
             </div>
           </div>
@@ -676,114 +1673,715 @@ const handleCloseReceipt = () => {
           </div>
         </div>
       )}
+
       {/* Receipt Modal */}
-   {showReceiptModal && selectedInquiryId && (
-           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto">
-           <div className="w-full min-h-screen">
-           <InquiryReceipt 
-            inquiryId={selectedInquiryId} 
-            onClose={handleCloseReceipt}
-          />             </div>
-             </div>
-)} 
-  </>
+      {showReceiptModal && selectedInquiryId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto">
+          <div className="w-full min-h-screen">
+            <InquiryReceipt 
+              inquiryId={selectedInquiryId} 
+              onClose={handleCloseReceipt}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
-);};
+export const InquiryDetail = () => {
+  const navigate = useNavigate();
+  const { inquiry_id } = useParams();
+  
+  const [inquiryData, setInquiryData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
- export const Inquiry = () => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [checkingCustomer, setCheckingCustomer] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [inquiryDetails, setInquiryDetails] = useState(null);
-  const [customerExists, setCustomerExists] = useState(false);
-  const [contactNumber, setContactNumber] = useState('');
-  const [showReceipt, setShowReceipt] = useState(false);
+  // ============================================
+  // SCROLL POSITION MANAGEMENT WITH HOOK
+  // ============================================
+  
+  const { saveScroll, restoreScroll, clearScroll } = useScrollPosition(
+    'inquiryDetail',
+    false // Don't auto-restore on mount
+  );
 
+  // Restore scroll position after data loads
+  useEffect(() => {
+    if (!loading && inquiryData) {
+      restoreScroll(300);
+    }
+  }, [loading, inquiryData, restoreScroll]);
+
+  useEffect(() => {
+    fetchInquiryDetail();
+  }, [inquiry_id]);
+
+  const fetchInquiryDetail = async (isManualRefresh = false) => {
+    try {
+      if (!isManualRefresh) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+      
+      const response = await axiosInstance.get(
+        `${ENDPOINTS.INQUIRY.GET_INQUIRY_DETAIL}/${inquiry_id}`
+      );
+      
+      setInquiryData(response.data.data);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error || 
+                          'Failed to fetch inquiry details';
+      setError(errorMessage);
+      console.error('Inquiry detail fetch error:', err);
+      console.error('Error details:', err.response);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleEdit = () => {
+    saveScroll(); // Save current scroll before navigation
+    navigate(`/inquiries/edit/${inquiry_id}`);
+  };
+
+  const handleBackToList = () => {
+    clearScroll(); // Clear saved scroll position
+    navigate('/repair/inquiry');
+  };
+
+  const handlePrintReceipt = () => {
+    window.open(`/inquiries/receipt/${inquiry_id}`, '_blank');
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'pending': { 
+        bg: 'bg-yellow-100', 
+        text: 'text-yellow-800', 
+        icon: Clock,
+        border: 'border-yellow-300'
+      },
+      'technician assigned': { 
+        bg: 'bg-blue-100', 
+        text: 'text-blue-800', 
+        icon: UserPlus,
+        border: 'border-blue-300'
+      },
+      'done': { 
+        bg: 'bg-green-100', 
+        text: 'text-green-800', 
+        icon: CheckCircle,
+        border: 'border-green-300'
+      },
+      'cancelled': { 
+        bg: 'bg-red-100', 
+        text: 'text-red-800', 
+        icon: XCircle,
+        border: 'border-red-300'
+      },
+    };
+
+    const config = statusConfig[status?.toLowerCase()] || statusConfig['pending'];
+    const Icon = config.icon;
+
+    return (
+      <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold border-2 ${config.bg} ${config.text} ${config.border}`}>
+        <Icon className="h-4 w-4 mr-2" />
+        {status}
+      </span>
+    );
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return 'N/A';
+    return timeString;
+  };
+
+  if (loading && !inquiryData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading inquiry details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Inquiry</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={handleBackToList}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          >
+            Back to Inquiry List
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+              <button
+                onClick={handleBackToList}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+                title="Back to list"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
+              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <ClipboardList className="h-6 w-6 text-indigo-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {inquiryData?.inquiry_no}
+                </h1>
+                <p className="text-sm text-gray-600">Inquiry Details</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => fetchInquiryDetail(true)}
+                disabled={isRefreshing}
+                className="p-2 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-5 w-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={handlePrintReceipt}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+              >
+                <Printer className="h-4 w-4" />
+                <span>Print Receipt</span>
+              </button>
+              {inquiryData?.status?.toLowerCase() !== 'cancelled' && 
+               inquiryData?.status?.toLowerCase() !== 'done' && (
+                <button
+                  onClick={handleEdit}
+                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  <span>Edit</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-8xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isRefreshing && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-2">
+            <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
+            <span className="text-sm text-blue-700">Refreshing inquiry details...</span>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {/* Status & Date Information */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Inquiry Status</h2>
+              {getStatusBadge(inquiryData?.status)}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-start space-x-3">
+                <Calendar className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Created Date</p>
+                  <p className="text-base text-gray-900">
+                    {formatDate(inquiryData?.created_date)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <Clock className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Created Time</p>
+                  <p className="text-base text-gray-900">
+                    {formatTime(inquiryData?.created_time)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer Information */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <User className="h-5 w-5 mr-2 text-indigo-600" />
+              Customer Information
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-start space-x-3">
+                <User className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Name</p>
+                  <p className="text-base text-gray-900">
+                    {inquiryData?.customer_name}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <Phone className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Contact</p>
+                  <p className="text-base text-gray-900">
+                    {inquiryData?.customer_contact}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <Mail className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Email</p>
+                  <p className="text-base text-gray-900">
+                    {inquiryData?.customer_email || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <MapPin className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Address</p>
+                  <p className="text-base text-gray-900">
+                    {inquiryData?.customer_address || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Technician Information */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Wrench className="h-5 w-5 mr-2 text-indigo-600" />
+              Technician Information
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-start space-x-3">
+                <User className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Technician Name</p>
+                  <p className="text-base text-gray-900">
+                    {inquiryData?.technician_name || 'Not Assigned'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <Phone className="h-5 w-5 text-indigo-600 mt-1" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Phone</p>
+                  <p className="text-base text-gray-900">
+                    {inquiryData?.technician_phone || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Products Information - TABLE FORMAT */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Package className="h-5 w-5 mr-2 text-indigo-600" />
+              Products ({inquiryData?.products?.length || 0})
+            </h2>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border-b-2 border-gray-200">
+                      Sr. No.
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border-b-2 border-gray-200">
+                      Product Name
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border-b-2 border-gray-200">
+                      Problem Description
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border-b-2 border-gray-200">
+                      Accessories Given
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {inquiryData?.products?.length > 0 ? (
+                    inquiryData.products.map((product, index) => (
+                      <tr key={product.item_id} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-3">
+                          <div className=" text-black  w-8 h-8 flex items-center justify-center text-sm font-bold">
+                            {index + 1}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-gray-900">
+                          {product.product_name}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {product.problem_description || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {product.accessories_given || 'N/A'}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="px-4 py-8 text-center text-gray-500">
+                        No products found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Quotation Information (if exists) */}
+          {inquiryData?.quotation && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <DollarSign className="h-5 w-5 mr-2 text-indigo-600" />
+                Quotation Details
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div className="flex items-start space-x-3">
+                  <FileText className="h-5 w-5 text-indigo-600 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Quotation Number</p>
+                    <p className="text-base text-gray-900 font-semibold">
+                      {inquiryData.quotation.quotation_no}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <DollarSign className="h-5 w-5 text-indigo-600 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Amount</p>
+                    <p className="text-base text-gray-900 font-semibold">
+                      ₹{inquiryData.quotation.total_amount}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <Calendar className="h-5 w-5 text-indigo-600 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Quotation Date</p>
+                    <p className="text-base text-gray-900">
+                      {formatDate(inquiryData.quotation.quotation_date)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <CheckCircle className="h-5 w-5 text-indigo-600 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Status</p>
+                    <p className="text-base text-gray-900">
+                      {inquiryData.quotation.status}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {inquiryData.quotation.items?.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="font-semibold text-gray-900 mb-3">Quotation Items</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-700">Product</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
+                          <th className="px-4 py-2 text-right font-semibold text-gray-700">Qty</th>
+                          <th className="px-4 py-2 text-right font-semibold text-gray-700">Unit Price</th>
+                          <th className="px-4 py-2 text-right font-semibold text-gray-700">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {inquiryData.quotation.items.map((item) => (
+                          <tr key={item.item_id}>
+                            <td className="px-4 py-2 text-gray-900">{item.product_name}</td>
+                            <td className="px-4 py-2 text-gray-600">{item.product_description}</td>
+                            <td className="px-4 py-2 text-right text-gray-900">{item.quantity}</td>
+                            <td className="px-4 py-2 text-right text-gray-900">₹{item.unit_price}</td>
+                            <td className="px-4 py-2 text-right font-semibold text-gray-900">₹{item.total_price}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Repair Information (if exists) */}
+          {inquiryData?.repair && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Wrench className="h-5 w-5 mr-2 text-indigo-600" />
+                Repair Details
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex items-start space-x-3">
+                  <FileText className="h-5 w-5 text-indigo-600 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Repair Number</p>
+                    <p className="text-base text-gray-900 font-semibold">
+                      {inquiryData.repair.repair_no}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <CheckCircle className="h-5 w-5 text-indigo-600 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Status</p>
+                    <p className="text-base text-gray-900">
+                      {inquiryData.repair.repair_status}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <Calendar className="h-5 w-5 text-indigo-600 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Repair Date</p>
+                    <p className="text-base text-gray-900">
+                      {formatDate(inquiryData.repair.repair_date)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <Clock className="h-5 w-5 text-indigo-600 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Repair Time</p>
+                    <p className="text-base text-gray-900">
+                      {formatTime(inquiryData.repair.repair_time)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {inquiryData?.notes && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-indigo-600" />
+                Additional Notes
+              </h2>
+              <p className="text-base text-gray-900 whitespace-pre-wrap">
+                {inquiryData.notes}
+              </p>
+            </div>
+          )}
+        </div>
+      </main>
+    </>
+  );
+};
+
+export const EditInquiry = () => {
+  const navigate = useNavigate();
+  const { inquiry_id } = useParams();
+  
   const [formData, setFormData] = useState({
+    customer_id: '',
     customer_name: '',
     customer_contact: '',
     customer_email: '',
     customer_address: '',
     notes: '',
-    products: [
-      {
-        product_name: '',
-        problem_description: '',
-        accessories_given: ''
-      }
-    ]
+    products: []
   });
 
-  // Check if customer exists by contact number
-  const checkCustomerExists = async () => {
-    if (!/^[0-9]{10}$/.test(contactNumber)) {
-      setError('Phone number must be exactly 10 digits');
-      return;
+  const [originalData, setOriginalData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [searchContact, setSearchContact] = useState('');
+  const [checkingCustomer, setCheckingCustomer] = useState(false);
+  const [customerSearchError, setCustomerSearchError] = useState('');
+
+  const [deletedItemIds, setDeletedItemIds, clearDeletedItems] = useSessionStorage(
+    `editInquiry_deletedItems_${inquiry_id}`,
+    []
+  );
+
+  const [savedFormData, setSavedFormData, clearSavedFormData] = useSessionStorage(
+    `editInquiry_form_${inquiry_id}`,
+    null
+  );
+
+  const { saveScroll, restoreScroll, clearScroll } = useScrollPosition(
+    `editInquiry_${inquiry_id}`,
+    {
+      restoreOnMount: true,
+      contentReady: !loading,
+      restoreDelay: 100
     }
+  );
 
-    setCheckingCustomer(true);
-    setError('');
+  // FIXED: Save form data to session storage on change
+  useEffect(() => {
+    if (!originalData) return;
 
+    const isDifferent = hasChanges();
+
+    if (isDifferent) {
+      setSavedFormData(formData);
+    } else {
+      clearSavedFormData();
+    }
+  }, [formData, deletedItemIds, originalData]);
+
+  useEffect(() => {
+    fetchInquiryDetail();
+  }, [inquiry_id]);
+
+  const fetchInquiryDetail = async () => {
     try {
-      // Call backend to check if customer exists
-      const response = await axiosInstance.post(
-        ENDPOINTS.CUSTOMER.CHECK_BY_CONTACT,
-        { customer_contact: contactNumber }
+      setLoading(true);
+      const response = await axiosInstance.get(
+        `${ENDPOINTS.INQUIRY.GET_INQUIRY_DETAIL}/${inquiry_id}`
       );
       
-      if (response.data && response.data.exists) {
-        // Customer exists - autofill their information
-        setCustomerExists(true);
-        setFormData(prev => ({
-          ...prev,
-          customer_name: response.data.customer.customer_name || '',
-          customer_contact: contactNumber,
-          customer_email: response.data.customer.customer_email || '',
-          customer_address: response.data.customer.customer_address || ''
-        }));
-        setCurrentStep(2); // Skip to product details
+      const inquiry = response.data.data;
+      
+      const inquiryData = {
+        customer_id: inquiry.customer_id,
+        customer_name: inquiry.customer_name,
+        customer_contact: inquiry.customer_contact,
+        customer_email: inquiry.customer_email === 'NA' ? '' : inquiry.customer_email,
+        customer_address: inquiry.customer_address === 'NA' ? '' : inquiry.customer_address,
+        notes: inquiry.notes || '',
+        products: inquiry.products.map(p => ({
+          inquiry_item_id: p.item_id,
+          product_name: p.product_name,
+          problem_description: p.problem_description === 'NA' ? '' : p.problem_description,
+          accessories_given: p.accessories_given === 'NA' ? '' : p.accessories_given
+        }))
+      };
+      
+      setOriginalData(inquiryData);
+      
+      // FIXED: Simplified validation for saved data
+      if (savedFormData && 
+          typeof savedFormData === 'object' && 
+          savedFormData.customer_id) {
+        console.log('Restoring saved form data:', savedFormData);
+        setFormData(savedFormData);
       } else {
-        // New customer - show form to add details
-        setCustomerExists(false);
-        setFormData(prev => ({
-          ...prev,
-          customer_contact: contactNumber
-        }));
-        setCurrentStep(1); // Go to customer details form
+        setFormData(inquiryData);
       }
-    } catch (err) {
-      console.error('Error checking customer:', err);
-      // If customer doesn't exist (404) or error, treat as new customer
-      setCustomerExists(false);
-      setFormData(prev => ({
-        ...prev,
-        customer_contact: contactNumber
-      }));
-      setCurrentStep(1);
+    } catch (error) {
+      console.error('Error fetching inquiry:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          'Failed to fetch inquiry details';
+      showNotification('error', errorMessage);
     } finally {
-      setCheckingCustomer(false);
+      setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      setNotification({ show: false, type: '', message: '' });
+    }, 5000);
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.customer_name.trim()) {
+      newErrors.customer_name = 'Customer name is required';
+    }
+    
+    if (!formData.customer_contact.trim()) {
+      newErrors.customer_contact = 'Customer contact is required';
+    } else if (!/^\d{10}$/.test(formData.customer_contact)) {
+      newErrors.customer_contact = 'Contact number must be 10 digits';
+    }
+    
+    if (formData.customer_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customer_email)) {
+      newErrors.customer_email = 'Email must be valid';
+    }
+    
+    if (formData.products.length === 0) {
+      newErrors.products = 'At least one product is required';
+    }
+    
+    formData.products.forEach((product, i) => {
+      if (!product.product_name.trim()) {
+        newErrors[`product_${i}_name`] = `Product name is required for item ${i + 1}`;
+      }
+    });
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-    setError('');
+    
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleProductChange = (index, field, value) => {
     const updatedProducts = [...formData.products];
-    updatedProducts[index][field] = value;
+    updatedProducts[index] = {
+      ...updatedProducts[index],
+      [field]: value
+    };
+    
     setFormData(prev => ({
       ...prev,
       products: updatedProducts
     }));
-    setError('');
+    
+    if (errors[`product_${index}_${field}`]) {
+      setErrors(prev => ({ ...prev, [`product_${index}_${field}`]: '' }));
+    }
   };
 
   const addProduct = () => {
@@ -791,584 +2389,590 @@ const handleCloseReceipt = () => {
       ...prev,
       products: [
         ...prev.products,
-        {
-          product_name: '',
-          problem_description: '',
-          accessories_given: ''
-        }
+        { product_name: '', problem_description: '', accessories_given: '' }
       ]
     }));
   };
 
   const removeProduct = (index) => {
-    if (formData.products.length > 1) {
-      const updatedProducts = formData.products.filter((_, i) => i !== index);
-      setFormData(prev => ({
-        ...prev,
-        products: updatedProducts
-      }));
+    const product = formData.products[index];
+    
+    if (product.inquiry_item_id) {
+      setDeletedItemIds(prev => [...prev, product.inquiry_item_id]);
     }
+    
+    const updatedProducts = formData.products.filter((_, i) => i !== index);
+    setFormData(prev => ({
+      ...prev,
+      products: updatedProducts
+    }));
   };
 
-  const validateStep1 = () => {
-    if (!formData.customer_name.trim()) {
-      setError('Customer name is required');
-      return false;
-    }
-    if (!formData.customer_contact.trim()) {
-      setError('Customer contact is required');
-      return false;
-    }
-    return true;
-  };
+  const handleCheckCustomer = async () => {
+    setCustomerSearchError('');
 
-  const validateStep2 = () => {
-    if (formData.products.length === 0) {
-      setError('At least one product is required');
-      return false;
+    if (!/^\d{10}$/.test(searchContact)) {
+      setCustomerSearchError('Contact number must be 10 digits');
+      return;
     }
-    for (let i = 0; i < formData.products.length; i++) {
-      if (!formData.products[i].product_name.trim()) {
-        setError(`Product name is required for item ${i + 1}`);
-        return false;
-      }
+
+    if (searchContact === formData.customer_contact) {
+      setCustomerSearchError('This is the current customer');
+      return;
     }
-    return true;
-  };
 
-  const handleNext = () => {
-    if (currentStep === 1 && validateStep1()) {
-      setCurrentStep(2);
-      setError('');
-    } else if (currentStep === 2 && validateStep2()) {
-      setCurrentStep(3);
-      setError('');
-    }
-  };
-
-const handleBack = () => {
-    if (currentStep === 1) {
-      // Go back to contact lookup
-      setCurrentStep(0);
-      setContactNumber('');
-      setCustomerExists(false);
-      // Reset form data to initial state
-      setFormData({
-        customer_name: '',
-        customer_contact: '',
-        customer_email: '',
-        customer_address: '',
-        notes: '',
-        products: [
-          {
-            product_name: '',
-            problem_description: '',
-            accessories_given: ''
-          }
-        ]
-      });
-    } else if (currentStep === 2) {
-      // When going back from product details to contact lookup
-      // Reset everything to allow entering a new contact number
-      setCurrentStep(0);
-      setContactNumber('');
-      setCustomerExists(false);
-      setFormData({
-        customer_name: '',
-        customer_contact: '',
-        customer_email: '',
-        customer_address: '',
-        notes: '',
-        products: [
-          {
-            product_name: '',
-            problem_description: '',
-            accessories_given: ''
-          }
-        ]
-      });
-    } else {
-      setCurrentStep(prev => prev - 1);
-    }
-    setError('');
-  };
-  const handleSubmit = async () => {
-    if (!validateStep2()) return;
-
-    setLoading(true);
-    setError('');
-
+    setCheckingCustomer(true);
     try {
-      const response = await axiosInstance.post(ENDPOINTS.INQUIRY.ADD_INQUIRY, formData);
-      setInquiryDetails(response.data);
-      setSuccess(true);
-    } catch (err) {
-      console.error('Error creating inquiry:', err);
-      setError(err.response?.data?.error || 'Failed to create inquiry');
+      const response = await axiosInstance.post(
+        ENDPOINTS.CUSTOMER.CHECK_BY_CONTACT,
+        { customer_contact: searchContact }
+      );
+      
+      if (response.data.exists) {
+        const customer = response.data.customer;
+        setFormData(prev => ({
+          ...prev,
+          customer_id: customer.customer_id,
+          customer_name: customer.customer_name,
+          customer_contact: customer.customer_contact,
+          customer_email: customer.customer_email === 'NA' ? '' : customer.customer_email,
+          customer_address: customer.customer_address === 'NA' ? '' : customer.customer_address
+        }));
+        setShowCustomerModal(false);
+        setSearchContact('');
+        setCustomerSearchError('');
+        showNotification('success', 'Customer updated successfully');
+      } else {
+        setCustomerSearchError('Customer not found with this contact number');
+      }
+    } catch (error) {
+      console.error('Error checking customer:', error);
+      setCustomerSearchError(error.response?.data?.message || 'Failed to check customer');
     } finally {
-      setLoading(false);
+      setCheckingCustomer(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      showNotification('error', 'Please fix all validation errors');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const updateData = {
+        notes: formData.notes,
+        items: formData.products.map(p => ({
+          inquiry_item_id: p.inquiry_item_id,
+          product_name: p.product_name,
+          problem_description: p.problem_description || 'NA',
+          accessories_given: p.accessories_given || 'NA'
+        })),
+        deleted_item_ids: deletedItemIds
+      };
+
+      if (originalData && formData.customer_id !== originalData.customer_id) {
+        updateData.customer_id = formData.customer_id;
+      }
+
+      const response = await axiosInstance.put(
+        `${ENDPOINTS.INQUIRY.UPDATE_INQUIRY}/${inquiry_id}`,
+        updateData
+      );
+      
+      showNotification('success', response.data.message || 'Inquiry updated successfully');
+      
+      clearSavedFormData();
+      clearDeletedItems();
+      clearScroll();
+      
+      setTimeout(() => {
+        navigate(`/inquiries/detail/${inquiry_id}`);
+      }, 1500);
+    } catch (error) {
+      console.error('Error updating inquiry:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message ||
+                          'Failed to update inquiry. Please try again.';
+      showNotification('error', errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleReset = () => {
-    setFormData({
-      customer_name: '',
-      customer_contact: '',
-      customer_email: '',
-      customer_address: '',
-      notes: '',
-      products: [
-        {
-          product_name: '',
-          problem_description: '',
-          accessories_given: ''
-        }
-      ]
-    });
-    setCurrentStep(0);
-    setContactNumber('');
-    setError('');
-    setSuccess(false);
-    setInquiryDetails(null);
-    setCustomerExists(false);
-    setShowReceipt(false);
+    if (originalData) {
+      setFormData(originalData);
+      setDeletedItemIds([]);
+      setErrors({});
+      clearSavedFormData();
+      clearDeletedItems();
+      showNotification('success', 'Form reset to original values');
+    }
   };
 
-  const handleViewReceipt = () => {
-    setShowReceipt(true);
+  const handleCancel = () => {
+    clearSavedFormData();
+    clearDeletedItems();
+    clearScroll();
+    navigate(`/repair/inquiry`);
   };
 
-  const handleCloseReceipt = () => {
-    setShowReceipt(false);
+  // FIXED: Improved hasChanges function with detailed comparison
+  const hasChanges = () => {
+    if (!originalData) return false;
+    
+    // Check deleted items
+    if (deletedItemIds.length > 0) return true;
+    
+    // Check customer info
+    if (formData.customer_id !== originalData.customer_id ||
+        formData.customer_name !== originalData.customer_name ||
+        formData.customer_contact !== originalData.customer_contact ||
+        formData.customer_email !== originalData.customer_email ||
+        formData.customer_address !== originalData.customer_address ||
+        formData.notes !== originalData.notes) {
+      return true;
+    }
+    
+    // Check products length
+    if (formData.products.length !== originalData.products.length) {
+      return true;
+    }
+    
+    // FIXED: Better product comparison using ID or index matching
+    for (let i = 0; i < formData.products.length; i++) {
+      const currentProduct = formData.products[i];
+      
+      // Find matching original product by inquiry_item_id if it exists
+      let originalProduct;
+      if (currentProduct.inquiry_item_id) {
+        originalProduct = originalData.products.find(
+          p => p.inquiry_item_id === currentProduct.inquiry_item_id
+        );
+      } else {
+        // For new products without ID, compare by index
+        originalProduct = originalData.products[i];
+      }
+      
+      if (!originalProduct) return true;
+      
+      // Compare all product fields
+      if (currentProduct.product_name !== originalProduct.product_name ||
+          currentProduct.problem_description !== originalProduct.problem_description ||
+          currentProduct.accessories_given !== originalProduct.accessories_given) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
-  // Show receipt if requested
-  if (showReceipt && inquiryDetails) {
-    return <InquiryReceiptPDF inquiryData={inquiryDetails} onClose={handleCloseReceipt} />;
-  }
-
-  // Success screen with option to view receipt
-if (success && inquiryDetails) {
-  if (showReceipt) {
+  if (loading) {
     return (
-      <InquiryReceipt 
-        inquiryId={inquiryDetails.inquiry_id} 
-        onClose={() => {
-          setShowReceipt(false);
-          handleReset();
-        }}
-      />
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading inquiry details...</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center p-6">
-      <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
-        <div className="text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Inquiry Created Successfully!</h2>
-          <p className="text-gray-600 mb-6">Your inquiry has been registered in the system</p>
-        </div>
-
-        <div className="bg-gray-50 rounded-lg p-6 space-y-3 mb-6">
-          <div className="flex justify-between">
-            <span className="font-medium text-gray-700">Inquiry Number:</span>
-            <span className="font-bold text-blue-600">{inquiryDetails.inquiry_no}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-gray-700">Inquiry Date:</span>
-            <span className="text-gray-900">{new Date(inquiryDetails.inquiry_date).toLocaleDateString()}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-gray-700">Customer:</span>
-            <span className="text-gray-900">{inquiryDetails.customer?.customer_name}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-gray-700">Contact:</span>
-            <span className="text-gray-900">{inquiryDetails.customer?.customer_contact}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-gray-700">Products:</span>
-            <span className="text-gray-900">{inquiryDetails.products?.length} item(s)</span>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <button
-            onClick={() => setShowReceipt(true)}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-          >
-            <Printer className="w-5 h-5" />
-            View/Print Receipt
-          </button>
-          <button
-            onClick={handleReset}
-            className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            Create Another Inquiry
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-  return (
-    <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Add New Inquiry</h1>
-          <p className="text-gray-600 mt-1">Create a new repair inquiry with customer and product details</p>
-        </div>
-
-        {currentStep > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center flex-1">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'} font-semibold`}>
-                  1
-                </div>
-                <div className={`flex-1 h-1 mx-2 ${currentStep >= 2 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+    <>
+      {/* Header - keeping same as original */}
+      <header className="bg-white shadow-lg border-b border-gray-100">
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button onClick={handleCancel} className="p-2 hover:bg-gray-100 rounded-lg transition">
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <Edit2 className="h-6 w-6 text-white" />
               </div>
-              <div className="flex items-center flex-1">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'} font-semibold`}>
-                  2
-                </div>
-                <div className={`flex-1 h-1 mx-2 ${currentStep >= 3 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
-              </div>
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'} font-semibold`}>
-                3
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-indigo-600 bg-clip-text text-transparent">
+                  Edit Inquiry
+                </h1>
+                <p className="text-sm text-gray-600 flex items-center mt-1">
+                  <Sparkles className="h-3 w-3 mr-1 text-indigo-500" />
+                  Update inquiry details
+                </p>
               </div>
             </div>
-            <div className="flex justify-between mt-2 text-sm">
-              <span className={`${currentStep >= 1 ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>Customer Details</span>
-              <span className={`${currentStep >= 2 ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>Product Details</span>
-              <span className={`${currentStep >= 3 ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>Review & Submit</span>
-            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {notification.show && (
+          <div className={`mb-6 rounded-xl border-2 p-4 flex items-start space-x-3 shadow-lg ${
+            notification.type === 'success'
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+              : 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300'
+          }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            )}
+            <p className={`text-sm font-medium ${
+              notification.type === 'success' ? 'text-green-800' : 'text-red-800'
+            }`}>
+              {notification.message}
+            </p>
           </div>
         )}
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <span className="text-red-800">{error}</span>
-          </div>
-        )}
-
-        {currentStep === 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-            <div className="max-w-md mx-auto">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-semibold text-gray-900 mb-2">Enter Customer Contact</h2>
-                <p className="text-gray-600">We'll check if this customer already exists in our system</p>
-              </div>
-              
-              <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Customer Information */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+              <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Contact Number <span className="text-red-500">*</span>
+                  <h2 className="text-xl font-bold flex items-center">
+                    <User className="h-5 w-5 mr-2" />
+                    Customer Information
+                  </h2>
+                  <p className="text-indigo-100 mt-1 text-sm">Current customer details</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomerModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 transition font-medium"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  Change Customer
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="group">
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <User className="h-4 w-4 text-indigo-500" />
+                    <span>Customer Name</span>
                   </label>
                   <input
                     type="text"
-                    value={contactNumber}
-                    onChange={(e) => {
-                      setContactNumber(e.target.value);
-                      setError('');
-                    }}
-                    maxLength={10}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg text-center"
-                    placeholder="10 digit phone number"
-                    autoFocus
+                    value={formData.customer_name}
+                    disabled
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 text-gray-700"
                   />
                 </div>
 
+                <div className="group">
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <Phone className="h-4 w-4 text-indigo-500" />
+                    <span>Contact Number</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.customer_contact}
+                    disabled
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 text-gray-700"
+                  />
+                </div>
+
+                <div className="group">
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <Mail className="h-4 w-4 text-indigo-500" />
+                    <span>Email Address</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.customer_email || 'N/A'}
+                    disabled
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 text-gray-700"
+                  />
+                </div>
+
+                <div className="group">
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                    <MapPin className="h-4 w-4 text-indigo-500" />
+                    <span>Address</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.customer_address || 'N/A'}
+                    disabled
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 text-gray-700"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Products Information */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center">
+                    <Package className="h-5 w-5 mr-2" />
+                    Product Details ({formData.products.length})
+                  </h2>
+                  <p className="text-indigo-100 mt-1 text-sm">Update product information</p>
+                </div>
                 <button
-                  onClick={checkCustomerExists}
-                  disabled={checkingCustomer || contactNumber.length !== 10}
-                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-lg"
+                  type="button"
+                  onClick={addProduct}
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 transition font-medium"
                 >
-                  {checkingCustomer ? 'Checking...' : 'Continue'}
+                  <Plus className="w-4 h-4" />
+                  Add Product
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8 space-y-4">
+              {formData.products.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No products added yet. Click "Add Product" to start.
+                </div>
+              ) : (
+                formData.products.map((product, index) => (
+                  <div key={index} className="border-2 border-gray-200 rounded-xl p-6 relative bg-gradient-to-br from-gray-50 to-white hover:border-indigo-300 transition">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-bold text-gray-900 flex items-center">
+                        <Package className="h-4 w-4 mr-2 text-indigo-500" />
+                        Product {index + 1}
+                        {product.inquiry_item_id && (
+                          <span className="ml-2 text-xs text-gray-500">(ID: {product.inquiry_item_id})</span>
+                        )}
+                      </h3>
+                      {formData.products.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeProduct(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Product Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={product.product_name}
+                          onChange={(e) => handleProductChange(index, 'product_name', e.target.value)}
+                          className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition ${
+                            errors[`product_${index}_name`] ? 'border-red-400 bg-red-50' : 'border-gray-200'
+                          }`}
+                          placeholder="e.g., iPhone 12, Samsung TV"
+                        />
+                        {errors[`product_${index}_name`] && (
+                          <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>{errors[`product_${index}_name`]}</span>
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Problem Description
+                        </label>
+                        <textarea
+                          value={product.problem_description}
+                          onChange={(e) => handleProductChange(index, 'problem_description', e.target.value)}
+                          rows={3}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition resize-none"
+                          placeholder="Describe the issue..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Accessories Given
+                        </label>
+                        <input
+                          type="text"
+                          value={product.accessories_given}
+                          onChange={(e) => handleProductChange(index, 'accessories_given', e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                          placeholder="e.g., Charger, Box, Earphones"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {errors.products && (
+                <p className="text-sm text-red-600 flex items-center space-x-1">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.products}</span>
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Additional Notes */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+              <h2 className="text-xl font-bold">Additional Notes</h2>
+            </div>
+            <div className="p-8">
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                rows={4}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition resize-none"
+                placeholder="Any additional information..."
+              />
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex items-center justify-end space-x-4">
+            <button
+              type="button"
+              onClick={handleReset}
+              className="px-6 py-3 border-2 border-amber-300 text-amber-700 rounded-xl hover:bg-amber-50 transition font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={saving || !hasChanges()}
+              title="Reset to original values"
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium shadow-sm"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !hasChanges()}
+              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg"
+            >
+              {saving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Saving Changes...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {/* Info Card */}
+        <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-md">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-bold text-blue-900">Information</h3>
+              <p className="text-sm text-blue-800 mt-1">
+                 <span className="font-semibold">Change Customer</span> button to select a different customer.
+                Use the <span className="font-semibold">Reset</span> button to discard changes and restore original values.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Customer Search Modal */}
+      {showCustomerModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Change Customer</h3>
+              <button
+                onClick={() => {
+                  setShowCustomerModal(false);
+                  setSearchContact('');
+                  setCustomerSearchError('');
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="h-5 w-5 text-gray-600" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-4">
+              Enter the contact number of the customer you want to assign to this inquiry
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Contact Number
+                </label>
+                <input
+                  type="text"
+                  value={searchContact}
+                  onChange={(e) => {
+                    setSearchContact(e.target.value);
+                    setCustomerSearchError('');
+                  }}
+                  maxLength={10}
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-indigo-500 transition ${
+                    customerSearchError ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-indigo-500'
+                  }`}
+                  placeholder="10 digit phone number"
+                />
+                {customerSearchError && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center space-x-1">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{customerSearchError}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCustomerModal(false);
+                    setSearchContact('');
+                    setCustomerSearchError('');
+                  }}
+                  className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCheckCustomer}
+                  disabled={checkingCustomer || searchContact.length !== 10}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {checkingCustomer ? (
+                    <span className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Checking...</span>
+                    </span>
+                  ) : (
+                    'Search Customer'
+                  )}
                 </button>
               </div>
             </div>
           </div>
-        )}
-
-        {currentStep === 1 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">New Customer Information</h2>
-              <p className="text-sm text-gray-600 mt-1">This is a new customer. Please fill in their details.</p>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="customer_contact"
-                  value={formData.customer_contact}
-                  disabled
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Customer Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="customer_name"
-                  value={formData.customer_name}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                  placeholder="Enter customer name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  name="customer_email"
-                  value={formData.customer_email}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                  placeholder="customer@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address
-                </label>
-                <textarea
-                  name="customer_address"
-                  value={formData.customer_address}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                  placeholder="Enter address"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-between mt-6">
-              <button
-                onClick={handleBack}
-                className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                Back
-              </button>
-              <button
-                onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Next
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {currentStep === 2 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            {customerExists && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 text-sm">
-                  ✓ Existing customer: <span className="font-semibold">{formData.customer_name}</span>
-                </p>
-              </div>
-            )}
-            
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Product/Item Details</h2>
-              <button
-                onClick={addProduct}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add Product
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {formData.products.map((product, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4 relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900">Product {index + 1}</h3>
-                    {formData.products.length > 1 && (
-                      <button
-                        onClick={() => removeProduct(index)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Product Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={product.product_name}
-                        onChange={(e) => handleProductChange(index, 'product_name', e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                        placeholder="e.g., iPhone 12, Samsung TV"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Problem Description
-                      </label>
-                      <textarea
-                        value={product.problem_description}
-                        onChange={(e) => handleProductChange(index, 'problem_description', e.target.value)}
-                        rows={2}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Describe the issue..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Accessories Given
-                      </label>
-                      <input
-                        type="text"
-                        value={product.accessories_given}
-                        onChange={(e) => handleProductChange(index, 'accessories_given', e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="e.g., Charger, Box, Earphones"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-between mt-6">
-              <button
-                onClick={handleBack}
-                className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                Back
-              </button>
-              <button
-                onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Next
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {currentStep === 3 && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Review Details</h2>
-              
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3 text-lg">Customer Information</h3>
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Name:</span>
-                      <span className="font-medium text-gray-900">{formData.customer_name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Contact:</span>
-                      <span className="font-medium text-gray-900">{formData.customer_contact}</span>
-                    </div>
-                    {formData.customer_email && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Email:</span>
-                        <span className="font-medium text-gray-900">{formData.customer_email}</span>
-                      </div>
-                    )}
-                    {formData.customer_address && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Address:</span>
-                        <span className="font-medium text-gray-900">{formData.customer_address}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3 text-lg">Products ({formData.products.length})</h3>
-                  <div className="space-y-3">
-                    {formData.products.map((product, index) => (
-                      <div key={index} className="bg-gray-50 rounded-lg p-4">
-                        <div className="font-semibold text-gray-900 mb-2">{index + 1}. {product.product_name}</div>
-                        {product.problem_description && (
-                          <div className="text-sm text-gray-600 mb-1">
-                            <span className="font-medium">Problem:</span> {product.problem_description}
-                          </div>
-                        )}
-                        {product.accessories_given && (
-                          <div className="text-sm text-gray-600">
-                            <span className="font-medium">Accessories:</span> {product.accessories_given}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Additional Notes (Optional)
-                  </label>
-                  <textarea
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Any additional information..."
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between">
-              <button
-                onClick={handleBack}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                Back
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-lg"
-              >
-                <Save className="w-5 h-5" />
-                {loading ? 'Creating...' : 'Create Inquiry'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 };
-
 
 export const InquiryReceipt = ({ inquiryId, onClose }) => {
   const [receiptData, setReceiptData] = useState(null);
@@ -1691,7 +3295,3 @@ export const InquiryReceipt = ({ inquiryId, onClose }) => {
     </div>
   );
 };
-
-
-
-

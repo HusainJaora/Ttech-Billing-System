@@ -29,7 +29,7 @@ export const Technician = () => {
     clearOnSubmit: true,
     restoreOnMount: true
   });
-
+  const navigate = useNavigate();
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
@@ -60,6 +60,10 @@ export const Technician = () => {
         [name]: ''
       }));
     }
+  };
+  const handleCancel = () => {
+    clearForm();
+    navigate(`/master/technician/list`);
   };
 
   const showNotification = (type, message) => {
@@ -108,6 +112,12 @@ export const Technician = () => {
         <div className="px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+              <button
+                onClick={handleCancel}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
               <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
                 <Wrench className="h-6 w-6 text-white" />
               </div>
