@@ -140,7 +140,8 @@ export const MasterActions = ({
 
               <div className="space-y-3">
                 <p className="text-gray-700 break-words overflow-hidden">
-                  Are you sure you want to delete <span className="font-bold text-gray-900 break-all overflow-wrap-anywhere">"{itemName}"</span>?
+                  Are you sure you want to delete 
+                   <span className="font-bold text-gray-900 break-all overflow-wrap-anywhere"> {itemName}</span>?
                 </p>
                 <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg overflow-hidden">
                   <div className="flex items-start gap-2">
