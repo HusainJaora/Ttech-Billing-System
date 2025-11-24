@@ -61,8 +61,12 @@ export const ProductCategory = () => {
       setNotification({ show: false, type: '', message: '' });
     }, 5000);
   };
+
+
    const handleBackToList = () => {
-    navigate('/master/product-category/list');
+    navigate('/master/product-categories/list');
+    
+
     };
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -613,7 +617,7 @@ export const ProductCategoryList = () => {
                                 category.product_category_id, 
                                 category.product_category_name
                               )}
-                              itemName={category.product_category_name}
+                              itemName={'category'}
                               size="md"
                             />
                           </td>
@@ -1047,7 +1051,8 @@ export const ProductCategoryDetail = () => {
   };
 
   const handleBackToList = () => {
-    navigate('/master/product-category/list');
+    navigate('/master/product-categories/list');
+
   };
 
   if (loading && !categoryData) {

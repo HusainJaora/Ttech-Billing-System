@@ -780,7 +780,7 @@ export const SupplierList = () => {
                                 supplier.supplier_id, 
                                 supplier.supplier_Legal_name
                               )}
-                              itemName={'Supplier ?'}
+                              itemName={'Supplier  '}
                               size="md"
                             />
                           </td>

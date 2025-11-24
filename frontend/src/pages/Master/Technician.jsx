@@ -62,7 +62,6 @@ export const Technician = () => {
     }
   };
   const handleCancel = () => {
-    clearForm();
     navigate(`/master/technician/list`);
   };
 
@@ -650,7 +649,7 @@ export const TechnicianList = () => {
                                 technician.technician_id, 
                                 technician.technician_name
                               )}
-                              itemName={technician.technician_name}
+                              itemName={'technician '}
                               size="md"
                             />
                           </td>
