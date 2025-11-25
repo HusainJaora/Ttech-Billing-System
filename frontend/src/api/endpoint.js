@@ -75,6 +75,9 @@ const ENDPOINTS = {
     UPDATE_TERM:`${BASE_URL}/terms&Condition/quotation/update-terms`,
     DELETE_TERM:`${BASE_URL}/terms&Condition/quotation/delete-terms`,
     GET_TERM:`${BASE_URL}/terms&Condition/quotation`
+  },
+  QUOTATION:{
+    ADD_QUOTATION:`${BASE_URL}/quotation/add-quotation`
   }
 };
 

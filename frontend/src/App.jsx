@@ -16,6 +16,7 @@ import ProfilePage from './pages/userProfile/UserProfile';
 import { InquiryTermsConditions } from './pages/Terms&Conditions/inquiryTerms';
 import { InvoiceTermsConditions } from './pages/Terms&Conditions/invoiceTerms';
 import { QuotationTermsConditions } from './pages/Terms&Conditions/quotationTerm';
+import { AddQuotation } from './pages/Quotation';
 
 function App() {
   return (
@@ -70,6 +71,12 @@ function App() {
            <Route path="/settings/terms/inquiry" element={<InquiryTermsConditions />} />
            <Route path="/settings/terms/invoice" element={<InvoiceTermsConditions />} />
            <Route path="/settings/terms/quotation" element={<QuotationTermsConditions />} />
+
+
+           {/* Quotation Route */}
+           <Route path="/quotations/create" element={<AddQuotation />} />
+           
+
 
   
            
