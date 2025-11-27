@@ -10,12 +10,14 @@ FileText,ClipboardList,Calendar,User,Phone,Wrench,Mail,MapPin,Package,Sparkles,D
 import { SearchActionBar } from '../../components/SearchActionBar';
 import { ExportButton } from '../../components/ExportButton';
 import { Pagination } from '../../components/Pagination';
-import {usePersistedForm, useScrollPosition, useSessionStorage } from '../../hooks/SessionStorage';
+import {usePersistedForm, useScrollPosition, useSessionStorage, removeFromSession} from '../../hooks/SessionStorage';
 
 
 
 
 export const Inquiry = () => {
+
+  const navigate = useNavigate();
   // Session storage keys
   const STEP_KEY = 'inquiry_current_step';
   const CONTACT_KEY = 'inquiry_contact_number';
@@ -215,10 +217,9 @@ export const Inquiry = () => {
       setContactNumber('');
       setCustomerExists(false);
       resetForm();
-      // Clear session storage
-      sessionStorage.removeItem(STEP_KEY);
-      sessionStorage.removeItem(CONTACT_KEY);
-      sessionStorage.removeItem(CUSTOMER_EXISTS_KEY);
+      removeFromSession(STEP_KEY);
+      removeFromSession(CONTACT_KEY);
+      removeFromSession(CUSTOMER_EXISTS_KEY);
     } else {
       setCurrentStep(prev => prev - 1);
     }
@@ -243,9 +244,9 @@ export const Inquiry = () => {
       // This ensures refresh takes user back to start
       setTimeout(() => {
         clearForm();
-        sessionStorage.removeItem(STEP_KEY);
-        sessionStorage.removeItem(CONTACT_KEY);
-        sessionStorage.removeItem(CUSTOMER_EXISTS_KEY);
+        removeFromSession(STEP_KEY);
+        removeFromSession(CONTACT_KEY);
+        removeFromSession(CUSTOMER_EXISTS_KEY);
       }, 100);
     } catch (err) {
       console.error('Error creating inquiry:', err);
@@ -254,6 +255,9 @@ export const Inquiry = () => {
     } finally {
       setLoading(false);
     }
+  };
+  const handleBackToList = () => {
+    navigate('/repair/inquiry');
   };
 
   const handleReset = () => {
@@ -266,9 +270,9 @@ export const Inquiry = () => {
     setNotification({ show: false, type: '', message: '' });
     
     // Clear all session storage
-    sessionStorage.removeItem(STEP_KEY);
-    sessionStorage.removeItem(CONTACT_KEY);
-    sessionStorage.removeItem(CUSTOMER_EXISTS_KEY);
+     removeFromSession(STEP_KEY);
+     removeFromSession(CONTACT_KEY);
+     removeFromSession(CUSTOMER_EXISTS_KEY);
   };
 
   // Show receipt if requested
@@ -292,6 +296,12 @@ export const Inquiry = () => {
           <div className="px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4 ml-12 lg:ml-0">
+                <button
+                onClick={handleBackToList}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
                 <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
                   <CheckCircle className="h-6 w-6 text-white" />
                 </div>
@@ -915,10 +925,6 @@ export const InquiryList = () => {
   
   const ITEMS_PER_PAGE = 20;
 
-  // ============================================
-  // SCROLL POSITION MANAGEMENT WITH HOOK
-  // ============================================
-  
   const { saveScroll, restoreScroll, clearScroll } = useScrollPosition(
     'inquiryList',
     false // Don't auto-restore on mount

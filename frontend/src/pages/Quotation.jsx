@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect,useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../api/axios';
 import ENDPOINTS from '../api/endpoint';
@@ -8,12 +8,13 @@ import {
   User, Phone, Mail, MapPin, Package, Sparkles, 
   CheckCircle, FileText, DollarSign
 } from 'lucide-react';
-import { usePersistedForm } from '../hooks/SessionStorage';
+import { usePersistedForm, useSessionStorage, loadFromSession   } from '../hooks/SessionStorage';
 
 export const AddQuotation = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inquiryIdFromUrl = searchParams.get('inquiry_id');
+  const hasInitializedStep = useRef(false);
 
   // Session storage keys
   const STEP_KEY = 'quotation_current_step';
@@ -21,24 +22,27 @@ export const AddQuotation = () => {
   const CUSTOMER_EXISTS_KEY = 'quotation_customer_exists';
   const QUOTATION_TYPE_KEY = 'quotation_type';
 
-  // Initialize state
-  const [currentStep, setCurrentStep] = useState(() => {
-    const saved = sessionStorage.getItem(STEP_KEY);
-    return saved ? parseInt(saved) : (inquiryIdFromUrl ? 1 : 0);
-  });
 
-  const [contactNumber, setContactNumber] = useState(() => {
-    return sessionStorage.getItem(CONTACT_KEY) || '';
-  });
 
-  const [customerExists, setCustomerExists] = useState(() => {
-    const saved = sessionStorage.getItem(CUSTOMER_EXISTS_KEY);
-    return saved === 'true';
-  });
+  const [currentStep, setCurrentStep, clearCurrentStep] = useSessionStorage(
+  STEP_KEY,
+   0
+);
 
-  const [quotationType, setQuotationType] = useState(() => {
-    return sessionStorage.getItem(QUOTATION_TYPE_KEY) || (inquiryIdFromUrl ? 'Repair' : 'Normal');
-  });
+const [contactNumber, setContactNumber, clearContactNumber] = useSessionStorage(
+  CONTACT_KEY,
+  ''
+);
+
+const [customerExists, setCustomerExists, clearCustomerExists] = useSessionStorage(
+  CUSTOMER_EXISTS_KEY,
+  false
+);
+
+const [quotationType, setQuotationType, clearQuotationType] = useSessionStorage(
+  QUOTATION_TYPE_KEY,
+  inquiryIdFromUrl ? 'Repair' : 'Normal'
+);
 
   const [loading, setLoading] = useState(false);
   const [checkingCustomer, setCheckingCustomer] = useState(false);
@@ -74,24 +78,18 @@ export const AddQuotation = () => {
     restoreOnMount: true
   });
 
-  // Save state to session storage
-  useEffect(() => {
-    sessionStorage.setItem(STEP_KEY, currentStep.toString());
-  }, [currentStep]);
+
 
   useEffect(() => {
-    if (contactNumber) {
-      sessionStorage.setItem(CONTACT_KEY, contactNumber);
+  if (!hasInitializedStep.current && inquiryIdFromUrl) {
+    const savedStep = loadFromSession(STEP_KEY, null);
+    // Only set to step 1 if there's no saved step
+    if (savedStep === null || savedStep === 0) {
+      setCurrentStep(1);
     }
-  }, [contactNumber]);
-
-  useEffect(() => {
-    sessionStorage.setItem(CUSTOMER_EXISTS_KEY, customerExists.toString());
-  }, [customerExists]);
-
-  useEffect(() => {
-    sessionStorage.setItem(QUOTATION_TYPE_KEY, quotationType);
-  }, [quotationType]);
+    hasInitializedStep.current = true;
+  }
+}, [inquiryIdFromUrl, setCurrentStep]);
 
   useEffect(() => {
     fetchProductCategories();
@@ -109,30 +107,35 @@ export const AddQuotation = () => {
     }
   };
 
+ 
   const fetchInquiryDetails = async () => {
-    try {
-      setLoading(true);
-      const response = await axiosInstance.get(
-        `${ENDPOINTS.INQUIRY.GET_INQUIRY_DETAIL}/${inquiryIdFromUrl}`
-      );
-      const inquiry = response.data.data;
-      
-      updateFields({
-        customer_name: inquiry.customer_name,
-        customer_contact: inquiry.customer_contact,
-        customer_email: inquiry.customer_email === 'NA' ? '' : inquiry.customer_email,
-        customer_address: inquiry.customer_address === 'NA' ? '' : inquiry.customer_address,
-        inquiry_id: inquiryIdFromUrl
-      });
-      
+  try {
+    setLoading(true);
+    const response = await axiosInstance.get(
+      `${ENDPOINTS.INQUIRY.GET_INQUIRY_DETAIL}/${inquiryIdFromUrl}`
+    );
+    const inquiry = response.data.data;
+    
+    updateFields({
+      customer_name: inquiry.customer_name,
+      customer_contact: inquiry.customer_contact,
+      customer_email: inquiry.customer_email === 'NA' ? '' : inquiry.customer_email,
+      customer_address: inquiry.customer_address === 'NA' ? '' : inquiry.customer_address,
+      inquiry_id: inquiryIdFromUrl
+    });
+    
+    // Only set step to 1 if there's no saved step (first time loading)
+    const savedStep = loadFromSession(STEP_KEY, null);
+    if (savedStep === null || savedStep === 0) {
       setCurrentStep(1);
-    } catch (err) {
-      showNotification('error', 'Failed to load inquiry details');
-      navigate('/repair/inquiry');
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    showNotification('error', 'Failed to load inquiry details');
+    navigate('/repair/inquiry');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
@@ -278,21 +281,19 @@ export const AddQuotation = () => {
     }
   };
 
+ 
   const handleBack = () => {
-    if (currentStep === 1 && !inquiryIdFromUrl) {
-      setCurrentStep(0);
-      setContactNumber('');
-      setCustomerExists(false);
-      resetForm();
-      sessionStorage.removeItem(STEP_KEY);
-      sessionStorage.removeItem(CONTACT_KEY);
-      sessionStorage.removeItem(CUSTOMER_EXISTS_KEY);
-    } else {
-      setCurrentStep(prev => prev - 1);
-    }
-    setErrors({});
-  };
-
+  if (currentStep === 1 && !inquiryIdFromUrl) {
+    setCurrentStep(0);
+    clearContactNumber();
+    clearCustomerExists();
+    resetForm();
+    clearCurrentStep();
+  } else {
+    setCurrentStep(prev => prev - 1);
+  }
+  setErrors({});
+};
   const calculateTotal = () => {
     return formData.items.reduce((sum, item) => 
       sum + (item.quantity * item.unit_price), 0
@@ -318,13 +319,14 @@ export const AddQuotation = () => {
       showNotification('success', 'Quotation created successfully!');
       setCurrentStep(4);
       
-      setTimeout(() => {
-        clearForm();
-        sessionStorage.removeItem(STEP_KEY);
-        sessionStorage.removeItem(CONTACT_KEY);
-        sessionStorage.removeItem(CUSTOMER_EXISTS_KEY);
-        sessionStorage.removeItem(QUOTATION_TYPE_KEY);
-      }, 100);
+    
+     setTimeout(() => {
+     clearForm();
+     clearCurrentStep();
+     clearContactNumber();
+     clearCustomerExists();
+     clearQuotationType();
+     }, 100);
     } catch (err) {
       console.error('Error creating quotation:', err);
       const errorMessage = err.response?.data?.error || 'Failed to create quotation';
@@ -334,17 +336,16 @@ export const AddQuotation = () => {
     }
   };
 
+
   const handleReset = () => {
-    resetForm();
-    setCurrentStep(inquiryIdFromUrl ? 1 : 0);
-    setContactNumber('');
-    setErrors({});
-    setQuotationDetails(null);
-    setCustomerExists(false);
-    sessionStorage.removeItem(STEP_KEY);
-    sessionStorage.removeItem(CONTACT_KEY);
-    sessionStorage.removeItem(CUSTOMER_EXISTS_KEY);
-  };
+  resetForm();
+  setCurrentStep(inquiryIdFromUrl ? 1 : 0);
+  clearContactNumber();
+  setErrors({});
+  setQuotationDetails(null);
+  clearCustomerExists();
+  clearCurrentStep();
+};
 
   if (loading && currentStep < 4) {
     return (
